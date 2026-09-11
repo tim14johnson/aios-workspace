@@ -1,0 +1,50 @@
+# Build products
+.build/
+**/.build/
+.swiftpm/
+**/.swiftpm/
+DerivedData/
+**/DerivedData/
+**/Products/
+
+# Xcode user state
+**/xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# macOS
+.DS_Store
+
+# Nested git repositories — each has its own remote and commit cycle.
+# Listed here so the workspace root repo stays clean.
+AiOSCore/
+AiOSHub/
+AiOSBusiness/
+AiOSMyFamily/
+AiOSOrchestrator/
+docs/
+context/
+
+# Local logs / tool-run history
+*.log
+**/*.log
+
+# Aider local logs (keep the model settings file, ignore the chat/input history)
+.aider.chat.history.md
+.aider.input.history
+.aider.tags.cache*
+**/.aider.chat.history.md
+**/.aider.input.history
+**/.aider.tags.cache*
+
+# Python bytecode
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Local tool state (Claude Code, OpenCode settings)
+.claude/
+.opencode/
+
+# Secrets — API keys for Deep Review / cloud tier. NEVER commit.
+.aios.env

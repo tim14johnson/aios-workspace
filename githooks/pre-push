@@ -1,0 +1,23 @@
+#!/bin/bash
+# Shared pre-push hook for all AiOS sub-repos. Runs the full build+test verification
+# (AGENTS.md's "definition of done") for whichever repo is being pushed, before the push
+# leaves your machine.
+#
+# Bypass once:                 git push --no-verify
+# Disable for one repo:        git -C <repo> config --unset core.hooksPath
+
+set -uo pipefail
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+WORKSPACE_ROOT="$(cd "$REPO_ROOT/.." && pwd)"
+TARGET_NAME="$(basename "$REPO_ROOT")"
+
+case "$TARGET_NAME" in
+  AiOSCore) TARGET=core ;;
+  AiOSHub) TARGET=hub ;;
+  AiOSBusiness) TARGET=business ;;
+  AiOSMyFamily) TARGET=myfamily ;;
+  *) TARGET=all ;;
+esac
+
+echo "Running pre-push verification for $TARGET_NAME (scripts/verify.sh $TARGET)..."
+"$WORKSPACE_ROOT/scripts/verify.sh" "$TARGET"

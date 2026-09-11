@@ -1,0 +1,73 @@
+#!/bin/bash
+# aicode-review — "Deep Review": send a code diff to the best available reviewer for a thorough,
+# second-opinion review. This is the escalation tier that catches what the local coder + `swift test`
+# miss (e.g. silently mutated lines from whole-file edits).
+#
+# Usage:
+#   tools/aicode-review              # reviews the last commit (HEAD~1..HEAD)
+#   tools/aicode-review HEAD~3..HEAD # reviews a range
+#
+# Routing (tiered, degrades gracefully):
+#   - if ANTHROPIC_API_KEY is set  -> CLOUD tier (Claude) — the real deep review (costs a little)
+#   - else                          -> LOCAL tier: a larger local model as a free second opinion
+#     (override with AICODE_REVIEW_MODEL=<ollama model>)
+set -euo pipefail
+
+REPO="/Volumes/AiOS Repository/code"
+PKG="$REPO/AiOSCore"
+# Load secrets (API keys) from a git-ignored file so nothing sensitive is ever committed.
+[ -f "$REPO/.aios.env" ] && set -a && . "$REPO/.aios.env" && set +a
+REVIEW_MODEL="${AICODE_REVIEW_MODEL:-qwen3.6:latest}"
+export OLLAMA_API_BASE="http://127.0.0.1:11434"
+RANGE="${1:-HEAD~1..HEAD}"
+
+cd "$PKG"
+DIFF="$(git --no-pager diff "$RANGE")"
+if [ -z "$DIFF" ]; then
+  echo "Nothing to review in range: $RANGE"
+  exit 0
+fi
+
+PROMPT="$(mktemp)"
+{
+  echo "You are a meticulous senior Swift 6 reviewer. Review this git diff from the AiOSCore package."
+  echo "Report, as a short prioritized list (Critical / Minor / Nits):"
+  echo "  1. Correctness bugs and missing edge cases."
+  echo "  2. Lines that were changed but should NOT have been — silent/unrelated mutations."
+  echo "  3. Style inconsistencies with the surrounding Swift 6 code."
+  echo "Cite the specific changed lines. If the diff looks clean, say so plainly."
+  echo ""
+  echo "=== DIFF ($RANGE) ==="
+  echo "$DIFF"
+} > "$PROMPT"
+
+echo "🔎 Deep Review — $RANGE"
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+  echo "   tier: CLOUD (Claude)"
+  echo "-----------------------------------------------------------"
+  python3 - "$PROMPT" <<'PY'
+import os, sys, json, urllib.request
+prompt = open(sys.argv[1]).read()
+model = os.environ.get("AICODE_CLOUD_MODEL", "claude-opus-4-8")
+body = {"model": model, "max_tokens": 2000,
+        "messages": [{"role": "user", "content": prompt}]}
+req = urllib.request.Request(
+    "https://api.anthropic.com/v1/messages",
+    data=json.dumps(body).encode(),
+    headers={"x-api-key": os.environ["ANTHROPIC_API_KEY"],
+             "anthropic-version": "2023-06-01",
+             "content-type": "application/json"})
+try:
+    r = json.load(urllib.request.urlopen(req, timeout=180))
+    print("".join(b.get("text", "") for b in r.get("content", [])))
+except Exception as e:
+    print("Cloud review failed:", e)
+    print("Falling back: run without ANTHROPIC_API_KEY for a local review.")
+PY
+else
+  echo "   tier: LOCAL ($REVIEW_MODEL) — free second opinion."
+  echo "   (Set ANTHROPIC_API_KEY for a cloud-tier deep review.)"
+  echo "-----------------------------------------------------------"
+  ollama run "$REVIEW_MODEL" < "$PROMPT"
+fi
+rm -f "$PROMPT"

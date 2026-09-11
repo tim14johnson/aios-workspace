@@ -1,0 +1,197 @@
+//
+//  AiOSCore.swift
+//  AiOSCore
+//
+//  Created by Tim Johnson on 7/9/26.
+//
+//  ARCHIVED 2026-07-23: this was a standalone SwiftData prototype (Person/
+//  Organization/Document/Recommendation as @Model classes) that lived loose
+//  at the repo root, outside AiOSCore/Sources and not referenced by
+//  Package.swift. The current, actively-built model layer is the
+//  AiOSObject struct design in AiOSCore/Sources/AiOSCore/Entities.swift and
+//  CanonicalObject.swift (dated 7/14 onward). Kept here for reference only;
+//  safe to delete permanently once confirmed unneeded.
+//
+
+import Foundation
+import SwiftData
+
+// MARK: - Core Entity Models
+@Model
+final class Person {
+    var id: String = UUID().uuidString
+    var name: String
+    var email: String?
+    var phone: String?
+    var roles: [Role] = []
+    var relationships: [Relationship] = []
+    var createdAt: Date
+    var updatedAt: Date
+    
+    init(name: String, email: String? = nil, phone: String? = nil) {
+        self.name = name
+        self.email = email
+        self.phone = phone
+        self.createdAt = Date()
+        self.updatedAt = Date()
+    }
+}
+
+@Model
+final class Organization {
+    var id: String = UUID().uuidString
+    var name: String
+    var type: OrganizationType
+    var members: [Person] = []
+    var createdAt: Date
+    var updatedAt: Date
+    
+    init(name: String, type: OrganizationType) {
+        self.name = name
+        self.type = type
+        self.createdAt = Date()
+        self.updatedAt = Date()
+    }
+}
+
+@Model
+final class Document {
+    var id: String = UUID().uuidString
+    var title: String
+    var content: String?
+    var fileType: String
+    var sourcePath: String
+    var owner: Person?
+    var createdAt: Date
+    var updatedAt: Date
+    var tags: [String] = []
+    
+    init(title: String, fileType: String, sourcePath: String) {
+        self.title = title
+        self.fileType = fileType
+        self.sourcePath = sourcePath
+        self.createdAt = Date()
+        self.updatedAt = Date()
+    }
+}
+
+@Model
+final class Recommendation {
+    var id: String = UUID().uuidString
+    var title: String
+    var summary: String
+    var confidenceProfile: ConfidenceProfile
+    var targetUser: Person?
+    var recommendationType: RecommendationType
+    var suggestedAction: String
+    var rationale: String
+    var riskFlags: [RiskFlag] = []
+    var expirationDate: Date?
+    var createdAt: Date
+    var updatedAt: Date
+    var relatedItems: [Item] = []
+    
+    init(title: String, summary: String, confidenceProfile: ConfidenceProfile, 
+         recommendationType: RecommendationType, suggestedAction: String, rationale: String) {
+        self.title = title
+        self.summary = summary
+        self.confidenceProfile = confidenceProfile
+        self.recommendationType = recommendationType
+        self.suggestedAction = suggestedAction
+        self.rationale = rationale
+        self.createdAt = Date()
+        self.updatedAt = Date()
+    }
+}
+
+// MARK: - Supporting Types
+
+enum OrganizationType: String, CaseIterable, Codable {
+    case business = "business"
+    case family = "family"
+    case clinic = "clinic"
+    case agency = "agency"
+    case office = "office"
+    case branch = "branch"
+}
+
+enum RecommendationType: String, CaseIterable, Codable {
+    case reorderPattern = "reorder_pattern"
+    case contactTemperature = "contact_temperature"
+    case buyingCommittee = "buying_committee"
+    case quoteDelay = "quote_delay"
+    case documentRouting = "document_routing"
+    case familyEvent = "family_event"
+    case relationshipContext = "relationship_context"
+    case homeworkSchedule = "homework_schedule"
+    case photoShareSuggestion = "photo_share_suggestion"
+}
+
+enum RiskFlag: String, CaseIterable, Codable {
+    case privacy = "privacy_concern"
+    case dataQuality = "data_quality_issues"
+    case userApprovalNeeded = "user_approval_required"
+    case actionSafety = "action_safety_risk"
+    case confidenceLow = "low_confidence"
+}
+
+@Model
+final class ConfidenceProfile {
+    var id: String = UUID().uuidString
+    var factualConfidence: Double // 0.0 to 1.0
+    var classificationConfidence: Double // 0.0 to 1.0
+    var intentMatchingConfidence: Double // 0.0 to 1.0
+    var contextCompletenessConfidence: Double // 0.0 to 1.0
+    var actionSafetyConfidence: Double // 0.0 to 1.0
+    var overallScore: Double
+    var explanation: String
+    var createdAt: Date
+    
+    init(factualConfidence: Double, classificationConfidence: Double, intentMatchingConfidence: Double,
+         contextCompletenessConfidence: Double, actionSafetyConfidence: Double, explanation: String) {
+        self.factualConfidence = factualConfidence
+        self.classificationConfidence = classificationConfidence
+        self.intentMatchingConfidence = intentMatchingConfidence
+        self.contextCompletenessConfidence = contextCompletenessConfidence
+        self.actionSafetyConfidence = actionSafetyConfidence
+        self.overallScore = (factualConfidence + classificationConfidence + intentMatchingConfidence + 
+                            contextCompletenessConfidence + actionSafetyConfidence) / 5.0
+        self.explanation = explanation
+        self.createdAt = Date()
+    }
+}
+
+@Model
+final class Role {
+    var id: String = UUID().uuidString
+    var roleName: String
+    var permissions: [String] = []
+    var createdAt: Date
+    var updatedAt: Date
+    
+    init(roleName: String) {
+        self.roleName = roleName
+        self.createdAt = Date()
+        self.updatedAt = Date()
+    }
+}
+
+@Model
+final class Relationship {
+    var id: String = UUID().uuidString
+    var type: String
+    var personA: Person
+    var personB: Person
+    var strength: Double // 0.0 to 1.0
+    var createdAt: Date
+    var updatedAt: Date
+    
+    init(type: String, personA: Person, personB: Person) {
+        self.type = type
+        self.personA = personA
+        self.personB = personB
+        self.strength = 0.5 // Default to medium relationship
+        self.createdAt = Date()
+        self.updatedAt = Date()
+    }
+}

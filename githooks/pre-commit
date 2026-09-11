@@ -1,0 +1,15 @@
+#!/bin/bash
+# Shared pre-commit hook for all AiOS sub-repos. Installed via `git config core.hooksPath`
+# (see scripts/install-git-hooks.sh) so this one file serves AiOSCore, AiOSHub,
+# AiOSBusiness, and AiOSMyFamily.
+#
+# Fast checks only (staged-file hygiene) — full build+test lives in the pre-push hook and
+# scripts/verify.sh, since those are too slow to run on every commit.
+#
+# Bypass once: git commit --no-verify
+
+set -uo pipefail
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+WORKSPACE_ROOT="$(cd "$REPO_ROOT/.." && pwd)"
+
+"$WORKSPACE_ROOT/scripts/check-hygiene.sh" --staged

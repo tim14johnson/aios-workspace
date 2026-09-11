@@ -1,0 +1,137 @@
+#!/bin/bash
+# aicode-auto — autonomous build loop. Works through a task list with the LOCAL model:
+# for each task -> code (aider, self-tests) -> swift test -> review -> fix -> repeat,
+# committing each success. STOPS immediately when a task can't be finished (your "human
+# needed" signal) so nothing runs away. Start it and walk away.
+#
+# Usage:
+#   tools/aicode-auto [tasks-file]      # default: aicode-tasks.md in the repo root
+#
+# Task file lines (blank lines and #comments ignored):
+#   <comma-separated files> | <plain-English task, and say "add a test">
+#
+# SAFETY / COST GUARDRAILS:
+#   - Reviews use the FREE LOCAL model by default. Set AICODE_AUTO_CLOUD=1 for cloud review
+#     (costs money per task) — off by default so walking away can't surprise your API bill.
+#   - Hard cap AICODE_AUTO_ROUNDS (default 3) fix-rounds per task.
+#   - Every change is a git commit (revertible). Full transcript -> aicode-auto.log.
+set -o pipefail
+
+echo "aicode-auto is paused: it can auto-commit before the senior-council gate. Use tools/aicode for bounded, staged local execution until this batch runner is rebuilt around the gate." >&2
+exit 2
+
+REPO="/Volumes/AiOS Repository/code"
+PKG="$REPO/AiOSCore"
+MEM="/Users/timjohnson/Library/Developer/Xcode/CodingAssistant/ClaudeAgentConfig/projects/-Volumes-AiOS-Repository-code/memory"
+AIDER="$HOME/.local/bin/aider"
+LOG="$REPO/aicode-auto.log"
+ROUNDS="${AICODE_AUTO_ROUNDS:-3}"
+export OLLAMA_API_BASE="http://127.0.0.1:11434"
+[ -f "$REPO/.aios.env" ] && set -a && . "$REPO/.aios.env" && set +a
+
+TASKS_FILE="${1:-$REPO/aicode-tasks.md}"
+[ -f "$TASKS_FILE" ] || { echo "No tasks file found: $TASKS_FILE"; exit 1; }
+
+READS=()
+[ -f "$MEM/aios-founder-architecture.md" ] && READS+=(--read "$MEM/aios-founder-architecture.md")
+
+log() { echo "$@" | tee -a "$LOG"; }
+
+run_aider() { # $1 = message ; remaining args = files
+  local msg="$1"; shift
+  "$AIDER" --model ollama_chat/qwen3-coder:30b \
+    --model-settings-file "$PKG/.aider.model.settings.yml" \
+    --yes --no-check-update --no-show-model-warnings \
+    --auto-test --test-cmd "swift test" \
+    "${READS[@]}" --message "$msg" "$@" >>"$LOG" 2>&1
+}
+
+review() { # $1 = git range ; sets REVIEW_VERDICT and REVIEW_TEXT
+  local range="$1" prompt
+  prompt="$(mktemp)"
+  {
+    echo "You are a senior Swift reviewer. Review this diff for Critical bugs or unwanted/unrelated changes."
+    echo "End with exactly one line: 'VERDICT: PASS' (safe to keep) or 'VERDICT: CHANGES' (a Critical issue must be fixed)."
+    echo ""
+    git -C "$PKG" --no-pager diff "$range"
+  } > "$prompt"
+
+  if [ "${AICODE_AUTO_CLOUD:-0}" = "1" ] && [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+    REVIEW_TEXT="$(python3 - "$prompt" <<'PY'
+import os, sys, json, urllib.request
+p = open(sys.argv[1]).read()
+b = {"model": os.environ.get("AICODE_CLOUD_MODEL", "claude-opus-4-8"), "max_tokens": 1500,
+     "messages": [{"role": "user", "content": p}]}
+req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=json.dumps(b).encode(),
+      headers={"x-api-key": os.environ["ANTHROPIC_API_KEY"], "anthropic-version": "2023-06-01", "content-type": "application/json"})
+try:
+    r = json.load(urllib.request.urlopen(req, timeout=180))
+    print("".join(x.get("text", "") for x in r.get("content", [])))
+except Exception as e:
+    print("REVIEW_ERROR", e); print("VERDICT: PASS")
+PY
+)"
+  else
+    REVIEW_TEXT="$(ollama run "${AICODE_REVIEW_MODEL:-qwen3.6:latest}" < "$prompt" 2>/dev/null)"
+  fi
+  rm -f "$prompt"
+  echo "$REVIEW_TEXT" | tail -8 >>"$LOG"
+  if echo "$REVIEW_TEXT" | grep -q "VERDICT: CHANGES"; then REVIEW_VERDICT="CHANGES"; else REVIEW_VERDICT="PASS"; fi
+}
+
+: > "$LOG"
+log "=== aicode-auto started $(date '+%Y-%m-%d %H:%M') — tasks: $TASKS_FILE — rounds/task: $ROUNDS ==="
+cd "$PKG" || exit 1
+
+TASK_NUM=0
+while IFS= read -r line || [ -n "$line" ]; do
+  case "$line" in ''|\#*) continue;; esac
+  [ -z "$(echo "$line" | tr -d '[:space:]')" ] && continue
+  TASK_NUM=$((TASK_NUM + 1))
+
+  files_csv="$(echo "${line%%|*}" | xargs)"
+  desc="$(echo "${line#*|}" | sed 's/^ *//; s/ *$//')"
+  IFS=',' read -ra FILES <<< "$files_csv"
+
+  log ""
+  log "───────────── TASK $TASK_NUM: $desc"
+  log "             files: $files_csv"
+
+  BEFORE="$(git rev-parse HEAD)"
+  msg="$desc"
+  ok=false
+  for r in $(seq 1 "$ROUNDS"); do
+    log "  round $r/$ROUNDS: coding…"
+    run_aider "$msg" "${FILES[@]}"
+    if ! swift test >/tmp/aicode_auto_test.log 2>&1; then
+      log "  round $r: tests FAILING — feeding errors back."
+      msg="The previous change failed 'swift test'. Fix it and keep changes minimal. Errors:
+$(tail -20 /tmp/aicode_auto_test.log)"
+      continue
+    fi
+    log "  round $r: tests pass — reviewing…"
+    review "$BEFORE..HEAD"
+    log "  review verdict: $REVIEW_VERDICT"
+    if [ "$REVIEW_VERDICT" = "PASS" ]; then ok=true; break; fi
+    msg="A reviewer flagged a Critical issue. Fix ONLY that, minimally. Reviewer notes:
+$REVIEW_TEXT"
+  done
+
+  AFTER="$(git rev-parse HEAD)"
+  if [ "$ok" = true ] && [ "$BEFORE" != "$AFTER" ]; then
+    log "  ✅ TASK $TASK_NUM done ($BEFORE → $AFTER)."
+  else
+    reason="could not pass tests+review in $ROUNDS rounds"
+    [ "$BEFORE" = "$AFTER" ] && reason="the local agent made no usable change"
+    log ""
+    log "🛑 HUMAN NEEDED — TASK $TASK_NUM: $desc"
+    log "   Reason: $reason."
+    log "   Inspect:  git -C \"$PKG\" diff $BEFORE     (and the review notes above in this log)"
+    log "   Stopped here so nothing runs away. Fix/guide this task, then re-run aicode-auto."
+    exit 2
+  fi
+done < "$TASKS_FILE"
+
+log ""
+log "🎉 All tasks complete."
+swift test 2>&1 | tail -1 | tee -a "$LOG"

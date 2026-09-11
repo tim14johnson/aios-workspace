@@ -1,0 +1,14 @@
+# Allowlist of third-party SwiftPM package URLs, one per line.
+# AGENTS.md rule 5: "No new third-party dependencies without a one-line justification at
+# the import site. The whole product thesis is Apple-native; default to
+# Foundation/SwiftUI/FoundationModels."
+#
+# scripts/check-hygiene.sh fails the "Third-party dependency allowlist" check if it finds
+# a .package(url:) / XCRemoteSwiftPackageReference that isn't listed here. To add one:
+#   1. Confirm there's really no Apple-native way to do it.
+#   2. Add the one-line justification as a comment at the Swift import site.
+#   3. Add the package URL below with the same justification.
+#
+# Format: <package-url>  # justification
+#
+# (empty — no third-party dependencies today; keep it that way by default)

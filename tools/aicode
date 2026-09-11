@@ -1,0 +1,100 @@
+#!/bin/bash
+# aicode — local frontline executor for bounded AiOSCore changes.
+# Qwen edits and tests only the named files. It never commits: verified work is staged for the
+# senior-council gate, which must pass before a human or explicit finalization command commits.
+set -euo pipefail
+
+REPO="/Volumes/AiOS Repository/code"
+PKG="$REPO/AiOSCore"
+AIDER="$HOME/.local/bin/aider"
+# shellcheck source=../scripts/lib/toolchain.sh
+source "$REPO/scripts/lib/toolchain.sh"
+export OLLAMA_API_BASE="http://127.0.0.1:11434"
+AICODE_MODEL="${AICODE_MODEL:-qwen3-coder:30b}"
+
+if [ "$#" -lt 2 ]; then
+  echo "Usage: tools/aicode \"task description\" <file> [file ...]"
+  echo "List every AiOSCore file the local executor may edit."
+  exit 2
+fi
+
+MSG="$1"
+shift
+FILES=()
+for file in "$@"; do
+  file="${file#"$PKG"/}"
+  file="${file#AiOSCore/}"
+  FILES+=("$file")
+done
+
+READS=(--read "$REPO/AGENTS.md")
+[ -f "$REPO/LOCALAGENT.md" ] && READS+=(--read "$REPO/LOCALAGENT.md")
+
+cd "$PKG"
+if [ -n "$(git status --porcelain)" ]; then
+  echo "Refusing to run in a dirty AiOSCore working tree."
+  echo "Commit, stash, or explicitly resolve existing work first so the senior gate can attribute every staged line to this task."
+  exit 2
+fi
+
+printf 'Using repository Xcode toolchain: %s\n' "$DEVELOPER_DIR"
+printf 'Local executor: %s via Ollama\n' "$AICODE_MODEL"
+printf 'Commit policy: hold changes for the senior-council gate\n\n'
+
+"$AIDER" \
+  --model "ollama_chat/$AICODE_MODEL" \
+  --model-settings-file "$PKG/.aider.model.settings.yml" \
+  --yes --no-check-update --no-show-model-warnings \
+  --no-auto-commits --no-dirty-commits \
+  --auto-test --test-cmd "$AIOS_SWIFT test" \
+  "${READS[@]}" \
+  --message "$MSG" \
+  "${FILES[@]}"
+
+echo ""
+echo "================= AiOS local-executor result ================="
+
+CHANGED_PATHS="$(git status --porcelain | sed -E 's/^.{3}//' | sed 's/ -> /\n/' | sort -u)"
+if [ -z "$CHANGED_PATHS" ]; then
+  echo "NOT DONE — the local executor left no working-tree changes."
+  exit 0
+fi
+
+UNEXPECTED=""
+while IFS= read -r changed; do
+  [ -z "$changed" ] && continue
+  allowed=false
+  for file in "${FILES[@]}"; do
+    [ "$changed" = "$file" ] && allowed=true
+  done
+  if [ "$allowed" = false ]; then
+    UNEXPECTED="$UNEXPECTED $changed"
+  fi
+done <<< "$CHANGED_PATHS"
+
+printf 'Changed paths:\n%s\n' "$CHANGED_PATHS"
+if [ -n "$UNEXPECTED" ]; then
+  echo "WRONG FILES — local executor touched unrequested path(s):$UNEXPECTED"
+  echo "Nothing was staged or committed. Inspect with: git -C \"$PKG\" diff"
+  exit 2
+fi
+
+if "$REPO/scripts/verify.sh" core >/tmp/aicode_verify.log 2>&1; then
+  tail -n 8 /tmp/aicode_verify.log
+else
+  tail -n 40 /tmp/aicode_verify.log
+  echo "VERIFICATION FAILING — nothing was staged or committed."
+  exit 2
+fi
+
+git add -- "${FILES[@]}"
+if git diff --cached --quiet; then
+  echo "No permitted changes were staged. Nothing was committed."
+  exit 2
+fi
+
+echo ""
+echo "STAGED, NOT COMMITTED — local executor and Xcode 27 verification passed."
+echo "Next required step: senior-council gate against this staged diff."
+echo "  SENIOR_COUNCIL_SEND=1 python3 \"$REPO/tools/senior-council.py\" gate --repo \"$PKG\""
+echo "Only a PASS from every configured senior reviewer may be finalized as a commit."

@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workspace
+   version = "1.0">
+   <Group
+      location = "group:AiOSBusiness"
+      name = "AiOSBusiness">
+      <Group
+         location = "group:AiOSBusiness"
+         name = "AiOSBusiness">
+         <FileRef
+            location = "group:Item.swift">
+         </FileRef>
+         <FileRef
+            location = "group:Assets.xcassets">
+         </FileRef>
+         <FileRef
+            location = "group:AiOSBusiness.entitlements">
+         </FileRef>
+         <FileRef
+            location = "group:AiOSBusinessApp.swift">
+         </FileRef>
+         <FileRef
+            location = "group:ContentView.swift">
+         </FileRef>
+         <FileRef
+            location = "group:Info.plist">
+         </FileRef>
+         <FileRef
+            location = "group:SpokeController.swift">
+         </FileRef>
+      </Group>
+      <FileRef
+         location = "group:AiOSBusiness.xcodeproj">
+      </FileRef>
+      <Group
+         location = "group:AiOSBusinessTests"
+         name = "AiOSBusinessTests">
+         <FileRef
+            location = "group:AiOSBusinessTests.swift">
+         </FileRef>
+      </Group>
+      <Group
+         location = "group:AiOSBusinessUITests"
+         name = "AiOSBusinessUITests">
+         <FileRef
+            location = "group:AiOSBusinessUITests.swift">
+         </FileRef>
+      </Group>
+   </Group>
+   <FileRef
+      location = "group:AiOSCore">
+   </FileRef>
+   <Group
+      location = "group:AiOSHub"
+      name = "AiOSHub">
+      <Group
+         location = "group:AiOSHub"
+         name = "AiOSHub">
+         <FileRef
+            location = "group:Item.swift">
+         </FileRef>
+         <FileRef
+            location = "group:Assets.xcassets">
+         </FileRef>
+         <FileRef
+            location = "group:AiOSHubApp.swift">
+         </FileRef>
+         <FileRef
+            location = "group:ContentView.swift">
+         </FileRef>
+         <FileRef
+            location = "group:StudioAnalyticsEngine.swift">
+         </FileRef>
+         <FileRef
+            location = "group:HubController.swift">
+         </FileRef>
+         <FileRef
+            location = "group:ContentTagger.swift">
+         </FileRef>
+         <FileRef
+            location = "group:OrganizerController.swift">
+         </FileRef>
+         <FileRef
+            location = "group:PlaudMCPProcess.swift">
+         </FileRef>
+         <FileRef
+            location = "group:PlaudFetchService.swift">
+         </FileRef>
+         <FileRef
+            location = "group:AppleContactsCollector.swift">
+         </FileRef>
+         <FileRef
+            location = "group:ResumeCorpusCollector.swift">
+         </FileRef>
+         <FileRef
+            location = "group:ResumeIngestController.swift">
+         </FileRef>
+         <FileRef
+            location = "group:ReferenceStore.swift">
+         </FileRef>
+         <FileRef
+            location = "group:ReferenceController.swift">
+         </FileRef>
+         <FileRef
+            location = "group:ApplicationStore.swift">
+         </FileRef>
+         <FileRef
+            location = "group:ApplicationController.swift">
+         </FileRef>
+         <FileRef
+            location = "group:RemindersCalendarConnector.swift">
+         </FileRef>
+         <FileRef
+            location = "group:URLSessionFetcher.swift">
+         </FileRef>
+         <FileRef
+            location = "group:AppleMailFetcher.swift">
+         </FileRef>
+         <FileRef
+            location = "group:ResumeExporter.swift">
+         </FileRef>
+         <FileRef
+            location = "group:DiscoveryWatchStore.swift">
+         </FileRef>
+         <FileRef
+            location = "group:JobDiscoveryController.swift">
+         </FileRef>
+         <FileRef
+            location = "group:JobSpyProcessRunner.swift">
+         </FileRef>
+         <FileRef
+            location = "group:HubResumeTextExtractor.swift">
+         </FileRef>
+      </Group>
+      <Group
+         location = "group:AiOSHubTests"
+         name = "AiOSHubTests">
+         <FileRef
+            location = "group:AiOSHubTests.swift">
+         </FileRef>
+         <FileRef
+            location = "group:ResumeCorpusCollectorTests.swift">
+         </FileRef>
+         <FileRef
+            location = "group:AppleMailFetcherTests.swift">
+         </FileRef>
+      </Group>
+      <Group
+         location = "group:AiOSHubUITests"
+         name = "AiOSHubUITests">
+         <FileRef
+            location = "group:AiOSHubUITests.swift">
+         </FileRef>
+      </Group>
+      <FileRef
+         location = "group:AiOSHub.xcodeproj">
+      </FileRef>
+   </Group>
+   <Group
+      location = "group:AiOSMyFamily"
+      name = "AiOSMyFamily">
+      <Group
+         location = "group:AiOSMyFamilyTests"
+         name = "AiOSMyFamilyTests">
+         <FileRef
+            location = "group:AiOSMyFamilyTests.swift">
+         </FileRef>
+      </Group>
+      <Group
+         location = "group:AiOSMyFamily"
+         name = "AiOSMyFamily">
+         <FileRef
+            location = "group:Item.swift">
+         </FileRef>
+         <FileRef
+            location = "group:Assets.xcassets">
+         </FileRef>
+         <FileRef
+            location = "group:AiOSMyFamilyApp.swift">
+         </FileRef>
+         <FileRef
+            location = "group:AiOSMyFamily.entitlements">
+         </FileRef>
+         <FileRef
+            location = "group:ContentView.swift">
+         </FileRef>
+         <FileRef
+            location = "group:Info.plist">
+         </FileRef>
+         <FileRef
+            location = "group:SpokeController.swift">
+         </FileRef>
+         <FileRef
+            location = "group:FileReviewController.swift">
+         </FileRef>
+      </Group>
+      <FileRef
+         location = "group:AiOSMyFamily.xcodeproj">
+      </FileRef>
+      <Group
+         location = "group:AiOSMyFamilyUITests"
+         name = "AiOSMyFamilyUITests">
+         <FileRef
+            location = "group:AiOSMyFamilyUITests.swift">
+         </FileRef>
+      </Group>
+   </Group>
+   <FileRef
+      location = "group:AiOSCore.swift">
+   </FileRef>
+</Workspace>

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (local)",
+      "options": {
+        "baseURL": "http://localhost:11434/v1"
+      },
+      "models": {
+        "qwen3-coder:30b": { "name": "Qwen3-Coder 30B  (Tier 1 — build)" },
+        "qwen3-coder-32k:latest": { "name": "Qwen3-Coder 32k  (Tier 1 — build, long context)" },
+        "devstral-small-2:24b": { "name": "Devstral 24B  (Tier 3 — review)" },
+        "deepseek-r1:70b": { "name": "DeepSeek-R1 70B  (BATCH-ONLY — thrashes 64GB, never interactive)" }
+      }
+    },
+    "omlx": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "oMLX (local, opt-in evaluation)",
+      "options": {
+        "baseURL": "http://127.0.0.1:18080/v1"
+      },
+      "models": {
+        "Qwen3-Coder-30B-A3B-Instruct-4bit": { "name": "Qwen3-Coder 30B via oMLX (opt-in; verify source references)" }
+      }
+    }
+  }
+}

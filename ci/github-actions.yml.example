@@ -1,0 +1,39 @@
+# Reference template — NOT active. None of the 4 AiOS sub-repos have a git remote yet
+# (this is a local-first, single-machine project per AGENTS.md), so there's no CI provider
+# wired up. This file exists so adding CI later is a copy-paste, not a design exercise.
+#
+# Important caveat: scripts/ lives in the outer workspace folder (`code/`), which is a
+# plain folder, not a git repo — it sits ALONGSIDE the 4 real repos (AiOSCore, AiOSHub,
+# AiOSBusiness, AiOSMyFamily), not inside any of them. That's fine for local hooks
+# (core.hooksPath can point at a sibling directory), but a real CI runner only checks out
+# ONE repo — it won't have scripts/ available. Before this file is useful, either:
+#   (a) vendor a copy of scripts/{lib,check-*.sh,verify.sh} into each sub-repo that wants
+#       CI, or
+#   (b) make `code/` itself a git repo (or a small separate "aios-tooling" repo) and have
+#       each app repo pull it in via a submodule or a checkout step below.
+# (a) is simpler and matches "lightweight" — duplication of a few small scripts is cheaper
+# than a submodule for a 4-repo personal project.
+#
+# Once wired up (per sub-repo, e.g. AiOSHub/.github/workflows/ci.yml):
+
+name: AiOS CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Run verification
+        # Adjust TARGET to whichever this repo is (core/hub/business/myfamily) once
+        # scripts/ is vendored into this repo per the caveat above.
+        run: ./scripts/verify.sh "$TARGET"
+        env:
+          TARGET: hub

@@ -58,7 +58,7 @@ Caveats — read before rehearsing:
 - **Hub data is per-machine.** Insights, pairing ledger, and organized-file state on the MBP hub are independent of the Mac Studio's. Stage whatever demo data you need on the MBP itself.
 - **Rehearse the full pair→analyze flow once on the MBP kit before demo day.**
 
-> **Remote/internet hub access is not supported yet** — spokes find the hub only via Bonjour (LAN/peer-to-peer). Reaching a home hub over the internet (fixed port + manual hub address + Tailscale) is on the backlog as a priority.
+> **Remote hub access via Tailscale:** Install [Tailscale](https://tailscale.com) on the Mac Studio (hub) and each spoke device (free personal tier). In AiOSHub → Devices, paste the Mac Studio's Tailscale address (IP or MagicDNS name, e.g. `mac-studio.ts.net`) into **Hub Tailscale address** and press Return. On the next pairing approval, spokes receive this address automatically. When a spoke is off the home LAN, it tries Bonjour for 2 s then falls back to the Tailscale address (Business → port 52811, Family → port 52801) — no manual config needed on the spoke. **Pairing still requires the home LAN** (Bonjour only); remote Tailscale reconnects work anywhere on the tailnet.
 
 ### On iPhone / iPad
 1. Connect the device to a Mac running Xcode.

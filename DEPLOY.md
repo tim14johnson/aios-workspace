@@ -58,7 +58,7 @@ Caveats — read before rehearsing:
 - **Hub data is per-machine.** Insights, pairing ledger, and organized-file state on the MBP hub are independent of the Mac Studio's. Stage whatever demo data you need on the MBP itself.
 - **Rehearse the full pair→analyze flow once on the MBP kit before demo day.**
 
-> **Remote hub access via Tailscale:** Install [Tailscale](https://tailscale.com) on the Mac Studio (hub) and each spoke device (free personal tier). In AiOSHub → Devices, paste the Mac Studio's Tailscale address (IP or MagicDNS name, e.g. `mac-studio.ts.net`) into **Hub Tailscale address** and press Return. On the next pairing approval, spokes receive this address automatically. When a spoke is off the home LAN, it tries Bonjour for 2 s then falls back to the Tailscale address (Business → port 52811, Family → port 52801) — no manual config needed on the spoke. **Pairing still requires the home LAN** (Bonjour only); remote Tailscale reconnects work anywhere on the tailnet.
+> **Remote hub access via Tailscale:** See [Part 5](#part-5--remote-hub-access-via-tailscale) for full setup. Short version: install Tailscale on the Mac Studio and each spoke device, then enter the Mac Studio's MagicDNS name in each spoke's **Hub address (remote)** field. Off-LAN spokes fall back to Tailscale automatically after a 2 s Bonjour timeout.
 
 ### On iPhone / iPad
 1. Connect the device to a Mac running Xcode.
@@ -127,3 +127,61 @@ This is the least-friction way to get the hub + spokes onto the Mac Studio and M
 - Approve the **Local Network** permission on each client (macOS: System Settings ▸ Privacy & Security ▸ Local Network).
 - An **unapproved** or denied device *cannot* connect — that's by design; approve it on the hub first.
 - Family and Business are **separate Bonjour services** (`_aios-fam._tcp` / `_aios-biz._tcp`); a device paired for one tenant is invisible to the other.
+
+---
+
+## Part 5 — Remote hub access via Tailscale
+
+Lets spokes on your iPhone, iPad, or MBP reach the Mac Studio hub from anywhere — coffee shop, hotel, client site — without a VPN or port forwarding. Tailscale is the network; AiOS provides fixed ports and a spoke address field.
+
+### 5a. Tailscale setup (one-time per device)
+
+1. **Mac Studio (hub):** download and install [Tailscale](https://tailscale.com) (free personal tier). Sign in. Note the **MagicDNS** hostname shown in the Tailscale menu bar icon, e.g. `mac-studio.tail12ab.ts.net`. You can also use the raw Tailscale IP (100.x.y.z).
+2. **Each spoke device** (iPhone, iPad, MBP): install **Tailscale** from the App Store / brew, sign in with the *same Tailscale account*. All devices join the same tailnet automatically.
+3. Verify: on the spoke device, `ping mac-studio.tail12ab.ts.net` should resolve and reply.
+
+> Tailscale free tier supports up to 3 users / 100 devices on one tailnet — easily covers Mac Studio + MBP + iPhone + iPad.
+
+### 5b. Fixed ports (no configuration needed in AiOS)
+
+AiOS binds the hub listeners to stable ports so Tailscale has a predictable target:
+
+| Tenant | Analysis port | Pairing port |
+|---|---|---|
+| Business | 52811 | 52812 |
+| Family | 52801 | 52802 |
+
+These ports are baked into the code. If you use the Mac Studio's firewall, add allow rules for TCP 52801, 52802, 52811, 52812 (or just turn Application Firewall off — AiOSHub is signed).
+
+### 5c. Tell each spoke where to find the hub remotely
+
+In **AiOSBusiness** or **AiOSMyFamily** → **Hub** tab → **Hub address (remote)**, paste the Mac Studio's MagicDNS name:
+
+```
+mac-studio.tail12ab.ts.net
+```
+
+Press Return (or just leave the field — it saves on edit). You can also paste the raw Tailscale IP. Leave this field blank to use only LAN Bonjour.
+
+### 5d. How discovery works after this
+
+When a spoke tries to reach the hub it:
+
+1. Broadcasts **Bonjour** on the local LAN (2-second timeout).
+2. If Bonjour times out (you're off the home LAN) it falls back to the **Tailscale address** on the tenant's fixed port.
+3. After a successful hub round-trip the spoke shows **"via local network"** or **"via remote address"** under the pairing state.
+
+Pairing itself still requires the home LAN (Bonjour only). Once paired, remote Tailscale reconnects work anywhere on the tailnet.
+
+### 5e. Spoke-to-spoke privacy note
+
+Tailscale devices on the same tailnet can see each other, but AiOS traffic is still wrapped in the AiOS TLS-PSK layer (the spoke-hub handshake). A rogue tailnet device cannot impersonate the hub or inspect signal data.
+
+### 5f. First live run checklist
+
+- [ ] Tailscale running on Mac Studio and spoke device(s) — all green in Tailscale dashboard
+- [ ] AiOSHub running on Mac Studio (Part 1)
+- [ ] Pairing completed on the home LAN (Part 4)
+- [ ] MagicDNS hostname entered in spoke's **Hub address (remote)** field
+- [ ] Move spoke device off the home Wi-Fi (use mobile data or another network)
+- [ ] Tap **Analyze** — look for **"via remote address"** in the Hub Connection section

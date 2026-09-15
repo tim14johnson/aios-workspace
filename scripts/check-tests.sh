@@ -44,8 +44,11 @@ test_app() {
     log_warn "$scheme: UI tests skipped (headless/CI — set AIOS_RUN_UI_TESTS=1 to force)"
   fi
 
+  # macOS ships bash 3.2, where "${arr[@]}" on an empty array throws "unbound variable" under
+  # `set -u` — the "${arr[@]+"${arr[@]}"}" form is the portable way to expand a possibly-empty
+  # array under nounset on that old a bash.
   if ( cd "$AIOS_ROOT" && "$AIOS_XCODEBUILD" -workspace AiOS.xcworkspace -scheme "$scheme" \
-        -destination 'platform=macOS' test "${skip_args[@]}" ); then
+        -destination 'platform=macOS' test "${skip_args[@]+"${skip_args[@]}"}" ); then
     log_pass "$scheme: tests passed"
   else
     log_fail "$scheme: tests failed"

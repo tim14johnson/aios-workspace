@@ -26,8 +26,26 @@ test_core() {
 test_app() {
   local target="$1" scheme; scheme="$(target_scheme "$target")"
   log_header "Tests: $scheme (xcodebuild test)"
+
+  # UI tests (XCUITest) require Accessibility permission granted to the test runner process.
+  # In headless environments (CI, SSH session, locked screen) the process can't get that
+  # permission and the suite hangs. Skip UI tests automatically when CI=true, or when
+  # AIOS_SKIP_UI_TESTS=1 is set manually. Set AIOS_RUN_UI_TESTS=1 to force them on.
+  local skip_ui=0
+  if [ "${AIOS_RUN_UI_TESTS:-0}" = "1" ]; then
+    skip_ui=0
+  elif [ "${CI:-}" = "true" ] || [ "${AIOS_SKIP_UI_TESTS:-0}" = "1" ]; then
+    skip_ui=1
+  fi
+
+  local skip_args=()
+  if [ "$skip_ui" -eq 1 ]; then
+    skip_args=(-skip-testing "${scheme}UITests")
+    log_warn "$scheme: UI tests skipped (headless/CI — set AIOS_RUN_UI_TESTS=1 to force)"
+  fi
+
   if ( cd "$AIOS_ROOT" && "$AIOS_XCODEBUILD" -workspace AiOS.xcworkspace -scheme "$scheme" \
-        -destination 'platform=macOS' test ); then
+        -destination 'platform=macOS' test "${skip_args[@]}" ); then
     log_pass "$scheme: tests passed"
   else
     log_fail "$scheme: tests failed"

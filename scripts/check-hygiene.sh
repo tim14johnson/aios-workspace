@@ -82,7 +82,9 @@ check_proprietary_data() {
   # "The Part Works" as an employer in résumé fixtures is his factual career record and is
   # allowed; we still flag "TPW "-style tokens that tend to accompany business data (meeting
   # names, CRM/deal identifiers). See AGENTS.md rule 6 / work-mac-and-ip.
-  hits=$(grep_hits 'TPW[_ -]' "${files[@]}")
+  # Doc comments (lines whose content begins with //) are excluded — "/// TPW catalog ingester"
+  # is legitimate code context, not a data leak.
+  hits=$(grep_hits 'TPW[_ -]' "${files[@]}" | grep -vE ':[[:space:]]*//')
   if [ -n "$hits" ]; then
     log_fail "Possible hardcoded TPW business data outside docs//context/ (AGENTS.md rule 6)"
     printf '%s\n' "$hits" | sed 's/^/    /'

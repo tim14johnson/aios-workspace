@@ -28,6 +28,12 @@
          <FileRef
             location = "group:SpokeController.swift">
          </FileRef>
+         <FileRef
+            location = "group:FileReviewController.swift">
+         </FileRef>
+         <FileRef
+            location = "group:FinanceFlow.swift">
+         </FileRef>
       </Group>
       <FileRef
          location = "group:AiOSBusiness.xcodeproj">
@@ -130,6 +136,9 @@
          </FileRef>
          <FileRef
             location = "group:HubResumeTextExtractor.swift">
+         </FileRef>
+         <FileRef
+            location = "group:TidySpotlightDonor.swift">
          </FileRef>
       </Group>
       <Group

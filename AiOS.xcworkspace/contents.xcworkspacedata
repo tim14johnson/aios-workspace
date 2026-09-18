@@ -34,6 +34,13 @@
          <FileRef
             location = "group:FinanceFlow.swift">
          </FileRef>
+         <Group
+            location = "group:AiOSBusiness"
+            name = "AiOSBusiness">
+         </Group>
+         <FileRef
+            location = "group:SystemHealthView.swift">
+         </FileRef>
       </Group>
       <FileRef
          location = "group:AiOSBusiness.xcodeproj">
@@ -140,6 +147,15 @@
          <FileRef
             location = "group:TidySpotlightDonor.swift">
          </FileRef>
+         <FileRef
+            location = "group:ModelRotationController.swift">
+         </FileRef>
+         <FileRef
+            location = "group:ModelRotationView.swift">
+         </FileRef>
+         <FileRef
+            location = "group:FFADashboardView.swift">
+         </FileRef>
       </Group>
       <Group
          location = "group:AiOSHubTests"
@@ -201,6 +217,12 @@
          </FileRef>
          <FileRef
             location = "group:FileReviewController.swift">
+         </FileRef>
+         <FileRef
+            location = "group:FFACaptureSection.swift">
+         </FileRef>
+         <FileRef
+            location = "group:FFACalendarSection.swift">
          </FileRef>
       </Group>
       <FileRef

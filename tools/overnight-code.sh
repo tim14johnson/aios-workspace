@@ -128,14 +128,67 @@ for i in $(seq 1 24); do
     sleep 5
 done
 
-# ── 4. Qwen + Devstral review ─────────────────────────────────────────────────
-log "=== STEP 4: Qwen + Devstral review ==="
-DIFF=$(git -C "$WORKSPACE" diff --staged 2>/dev/null || git -C "$WORKSPACE" diff HEAD 2>/dev/null || echo "(no diff)")
-bash "$COUNCIL_SCRIPT" \
-    "Review this diff for correctness, security, and test coverage. Be a skeptic." \
-    "$DIFF" \
-    > "$OUTDIR/review.md" 2>&1 || true
-log "Review complete. Output: $OUTDIR/review.md"
+# ── 4. Review — guard against empty/timeout output first ──────────────────────
+log "=== STEP 4: Review ==="
+PIPELINE_STATUS="ok"
+if grep -qE "timed out|NSURLError|Error Domain" "$OUTDIR/flash-next-output.md" 2>/dev/null; then
+    log "WARNING: Flash-Next output contains an error — skipping review."
+    printf '## Review skipped\n\nFlash-Next did not produce usable output (timeout or HTTP error).\nSee: %s\n' \
+        "$OUTDIR/flash-next-server.log" > "$OUTDIR/review.md"
+    PIPELINE_STATUS="no-output"
+else
+    # Direct HTTP review: pass the brief + Flash-Next output to Qwen on :8080.
+    # (local-model-council.sh expects file paths, not inline text — not suitable here.)
+    BRIEF_TEXT=$(<"$BRIEF")
+    FN_OUTPUT=$(<"$OUTDIR/flash-next-output.md")
+    python3 - "$BRIEF_TEXT" "$FN_OUTPUT" "$OUTDIR/review.md" <<'PY'
+import json, pathlib, sys, urllib.request
+
+brief, fn_output, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
+
+prompt = f"""You are a senior Swift engineer doing a pre-commit code review.
+Flash-Next generated code from this brief. Review the output for issues.
+
+=== BRIEF ===
+{brief[:4000]}
+
+=== FLASH-NEXT OUTPUT (generated code) ===
+{fn_output[:8000]}
+
+Check each item and flag specific line-level issues:
+1. Does the code fulfill every requirement stated in the brief?
+2. Swift 6 actor isolation — missing `await`, wrong isolation, nonisolated access?
+3. Force unwraps (`!`) in non-trivial positions?
+4. Re-definitions of types the brief says already exist in AiOSCore?
+5. iOS-only APIs without `#if os(iOS)` or `#available` guards?
+6. Any other obvious compile errors?
+
+Respond with PASS or FAIL on the first line, then a bullet list of specific issues.
+If no output was produced or the output is empty/error, say FAIL - no code generated."""
+
+payload = json.dumps({
+    "model": "qwen",
+    "messages": [{"role": "user", "content": prompt}],
+    "max_tokens": 800,
+    "temperature": 0
+}).encode()
+req = urllib.request.Request(
+    "http://127.0.0.1:8080/v1/chat/completions",
+    data=payload,
+    headers={"Content-Type": "application/json"},
+    method="POST"
+)
+try:
+    with urllib.request.urlopen(req, timeout=180) as r:
+        data = json.loads(r.read())
+        content = data["choices"][0]["message"]["content"]
+except Exception as e:
+    content = f"## Review failed\n\nQwen unreachable: {e}"
+pathlib.Path(out_path).write_text(content)
+print(content[:300])
+PY
+    log "Review complete. Output: $OUTDIR/review.md"
+fi
 
 # ── 5. Ready for Claude gate ──────────────────────────────────────────────────
 log "=== STEP 5: READY FOR CLAUDE REVIEW ==="
@@ -145,7 +198,11 @@ log "  Flash-Next out: $OUTDIR/flash-next-output.md"
 log "  Review:         $OUTDIR/review.md"
 log "  Full log:       $OUTDIR/pipeline.log"
 log ""
-log "Open AiOS Hub → System Health to see current state."
-log "Open Xcode, select Claude agent, and run the final gate."
-
-osascript -e "display notification \"Flash-Next + review done. Open Xcode for Claude gate.\" with title \"AiOS Overnight Pipeline\""
+if [[ "$PIPELINE_STATUS" == "no-output" ]]; then
+    log "  ⚠️  Flash-Next produced no output — raise timeout or split the brief."
+    osascript -e "display notification \"Flash-Next timed out — no code produced. Check pipeline.log.\" with title \"AiOS Overnight Pipeline ⚠️\""
+else
+    log "Open AiOS Hub → System Health to see current state."
+    log "Open Xcode, select Claude agent, and run the final gate."
+    osascript -e "display notification \"Flash-Next + review done. Open Xcode for Claude gate.\" with title \"AiOS Overnight Pipeline\""
+fi

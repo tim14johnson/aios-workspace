@@ -13,9 +13,12 @@ QWEN_MODEL="mlx-community/Qwen3.8-27B-4bit"
 DEVSTRAL_MODEL="mlx-community/Devstral-Small-2505-4bit"
 FLASH_PORT=8090   # dedicated port; avoids the Hub app's Qwen MLX server on :8080
 
-# Model files on external — main model + MTP speculative draft
-FLASH_MODEL=$(ls "/Volumes/AiOS Repository/ollama/UD-IQ4_XS/"*-00001-of-*.gguf 2>/dev/null | head -1)
-MTP_DRAFT="/Volumes/AiOS Repository/ollama/MTP/mtp-Qwen3.8-Flash-Next-shared-Q4_K_M.gguf"
+# Model files — prefer internal SSD (faster mmap); fall back to external if not copied yet.
+FLASH_MODEL=$(ls "$HOME/Models/UD-IQ4_XS/"*-00001-of-*.gguf 2>/dev/null \
+    || ls "/Volumes/AiOS Repository/ollama/UD-IQ4_XS/"*-00001-of-*.gguf 2>/dev/null \
+    | head -1)
+MTP_DRAFT="${HOME}/Models/mtp-Qwen3.8-Flash-Next-shared-Q4_K_M.gguf"
+[[ ! -f "$MTP_DRAFT" ]] && MTP_DRAFT="/Volumes/AiOS Repository/ollama/MTP/mtp-Qwen3.8-Flash-Next-shared-Q4_K_M.gguf"
 
 # Keep HuggingFace cache on external so any model downloads skip internal storage
 export HF_HOME="/Volumes/AiOS Repository/mlx-models"

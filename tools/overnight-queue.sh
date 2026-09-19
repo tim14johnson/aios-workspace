@@ -62,8 +62,15 @@ for _port in "$CODER_PORT" "$REVIEWER_PORT"; do
         log "  killing PID(s) $_pids on :$_port"
         echo "$_pids" | xargs kill -9 2>/dev/null || true
     fi
+    # Wait until the port is actually free (up to 15s)
+    for _w in $(seq 1 15); do
+        _still=$(lsof -ti ":$_port" 2>/dev/null || true)
+        [[ -z "$_still" ]] && break
+        [[ $_w -eq 15 ]] && { log "ERROR: Port $_port still in use after 15s. Kill PID(s) $_still manually."; exit 1; }
+        sleep 1
+    done
+    log "  :$_port is free."
 done
-sleep 2
 
 # shellcheck source=/dev/null
 source "$VENV"

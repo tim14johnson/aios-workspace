@@ -20,6 +20,8 @@ DEFAULT_WORKSPACE="/Volumes/AiOS Repository/code"
 ORCHESTRATOR_PKG="/Volumes/AiOS Repository/code/AiOSOrchestrator"
 export HF_HOME="/Volumes/AiOS Repository/mlx-models"
 
+TODAY=$(date '+%Y-%m-%d')
+
 mkdir -p "$OUTDIR"
 log() { echo "[$(date '+%H:%M:%S')] $*" | tee -a "$OUTDIR/queue.log"; }
 
@@ -28,14 +30,25 @@ if [[ ! -f "$QUEUE" ]]; then
     echo "ERROR: Queue file not found: $QUEUE" >&2; exit 1
 fi
 
-# Extract unchecked briefs: lines matching "- [ ] <path> [| <workspace>]"
-mapfile -t PENDING < <(grep -E '^\- \[ \]' "$QUEUE" || true)
+# Extract unchecked briefs from today's date section only
+mapfile -t PENDING < <(python3 - "$QUEUE" "$TODAY" <<'PY'
+import sys, re
+text = open(sys.argv[1]).read()
+date = sys.argv[2]
+match = re.search(rf'## {re.escape(date)}\n(.*?)(?=\n## |\Z)', text, re.DOTALL)
+if match:
+    for line in match.group(1).splitlines():
+        if line.startswith('- [ ]'):
+            print(line)
+PY
+)
+
 if [[ ${#PENDING[@]} -eq 0 ]]; then
-    log "Queue is empty — nothing to process."
-    osascript -e "display notification \"Queue is empty.\" with title \"AiOS Overnight Queue\""
+    log "No unchecked briefs for $TODAY in $QUEUE"
+    osascript -e "display notification \"No briefs queued for $TODAY.\" with title \"AiOS Overnight Queue\""
     exit 0
 fi
-log "Queue has ${#PENDING[@]} brief(s) to process."
+log "Found ${#PENDING[@]} brief(s) for $TODAY."
 
 # ── Start servers once ────────────────────────────────────────────────────────
 log "=== Starting coder (:${CODER_PORT}) + reviewer (:${REVIEWER_PORT}) ==="

@@ -40,23 +40,31 @@ That opens Finder. Each brief gets its own folder — open it and read `review.m
 open -a TextEdit "/Volumes/AiOS Repository/code/tools/overnight-queue.md"
 ```
 
-**Step 2 — Add a line in the `## Queue` section:**
+**Step 2 — Find or add today's date section.** It looks like this:
+```
+## 2026-09-20
+```
+If today's section doesn't exist yet, add it at the top of the file (below the intro paragraph).
+
+**Step 3 — Add your brief underneath it:**
 ```
 - [ ] /tmp/aios-overnight/your-brief-name.md | /Volumes/AiOS Repository/code
 ```
 
 Change `your-brief-name.md` to the actual brief path.
 Change the path after `|` to the target workspace if it's not the main code repo.
-Save the file and close TextEdit.
+Save and close TextEdit.
 
-The queue runner skips any line starting with `- [x]` (already done)
-and processes every `- [ ]` line in order, top to bottom.
+The queue runner finds today's date section automatically. It skips `- [x]` lines
+(already done) and processes every `- [ ]` line under today's heading, top to bottom.
+
+You can add future dates too — they won't run until that night.
 
 ---
 
 ## Remove a brief from the queue (before it runs)
 
-Open the queue file (Step 1 above), delete the line or change `[ ]` to `[-]`.
+Open the queue file, delete the line or change `[ ]` to `[-]`.
 
 ---
 

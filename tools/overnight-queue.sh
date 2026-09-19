@@ -14,7 +14,9 @@ VENV="$HOME/.mlx-venv/bin/activate"
 CODER_MODEL="mlx-community/Qwen2.5-Coder-32B-Instruct-4bit"
 CODER_FALLBACK="mlx-community/Qwen3.8-27B-4bit"
 REVIEWER_MODEL="mlx-community/Devstral-Small-2505-4bit"
-CODER_PORT=8080
+# 8080 = AiOS brain-server (reserved for the app — never kill/start here)
+# 8082 = Devstral reviewer    8083 = overnight coder (library models)
+CODER_PORT=8083
 REVIEWER_PORT=8082
 DEFAULT_WORKSPACE="/Volumes/AiOS Repository/code"
 

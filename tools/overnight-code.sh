@@ -23,9 +23,11 @@ WORKSPACE="${3:-/Volumes/AiOS Repository/code/AiOSCore}"
 OUTDIR="/tmp/aios-overnight"
 VENV="$HOME/.mlx-venv/bin/activate"
 
-CODER_MODEL="mlx-community/Qwen3.8-27B-4bit"
+CODER_MODEL="mlx-community/Qwen2.5-Coder-32B-Instruct-4bit"
 REVIEWER_MODEL="mlx-community/Devstral-Small-2505-4bit"
-CODER_PORT=8080
+# 8080 = AiOS brain-server (reserved for the app — never touch)
+# 8083 = overnight coder    8082 = Devstral reviewer
+CODER_PORT=8083
 REVIEWER_PORT=8082
 
 export HF_HOME="/Volumes/AiOS Repository/mlx-models"

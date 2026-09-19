@@ -11,13 +11,14 @@ QUEUE="${2:-$SCRIPT_DIR/overnight-queue.md}"
 OUTDIR="/tmp/aios-overnight"
 VENV="$HOME/.mlx-venv/bin/activate"
 
-CODER_MODEL="mlx-community/Qwen2.5-Coder-32B-Instruct-4bit"
-CODER_FALLBACK="mlx-community/Qwen3.8-27B-4bit"
 REVIEWER_MODEL="mlx-community/Devstral-Small-2505-4bit"
-# 8080 = AiOS brain-server (reserved for the app — never kill/start here)
-# 8082 = Devstral reviewer    8083 = overnight coder (library models)
-CODER_PORT=8083
+# 8080 = AiOS library port (brain-server, launchd-managed — never kill/start here)
+# 8082 = Devstral reviewer (overnight only)
+# The coder talks to whatever the library has loaded on :8080.
+# Set EXECUTOR_MODEL to match whatever the library is serving.
+CODER_PORT=8080
 REVIEWER_PORT=8082
+export EXECUTOR_MODEL="mlx-community/Qwen3.8-27B-4bit"
 DEFAULT_WORKSPACE="/Volumes/AiOS Repository/code"
 
 ORCHESTRATOR_PKG="/Volumes/AiOS Repository/code/AiOSOrchestrator"
@@ -56,37 +57,26 @@ if [[ ${#PENDING[@]} -eq 0 ]]; then
 fi
 log "Found ${#PENDING[@]} brief(s) for $TODAY."
 
-# ── Start servers once ────────────────────────────────────────────────────────
-log "=== Starting coder (:${CODER_PORT}) + reviewer (:${REVIEWER_PORT}) ==="
-for _port in "$CODER_PORT" "$REVIEWER_PORT"; do
-    _pids=$(lsof -ti ":$_port" 2>/dev/null || true)
-    if [[ -n "$_pids" ]]; then
-        log "  killing PID(s) $_pids on :$_port"
-        echo "$_pids" | xargs kill -9 2>/dev/null || true
-    fi
-    # Wait until the port is actually free (up to 15s)
-    for _w in $(seq 1 15); do
-        _still=$(lsof -ti ":$_port" 2>/dev/null || true)
-        [[ -z "$_still" ]] && break
-        [[ $_w -eq 15 ]] && { log "ERROR: Port $_port still in use after 15s. Kill PID(s) $_still manually."; exit 1; }
-        sleep 1
-    done
-    log "  :$_port is free."
+# ── Start reviewer only — coder is the always-on library server ───────────────
+# :8080 = AiOS model library (launchd brain-server — never touch, always live)
+# :8082 = Devstral reviewer (we manage this one)
+log "=== Verifying library (:${CODER_PORT}) + starting reviewer (:${REVIEWER_PORT}) ==="
+
+# Kill any stale reviewer on :8082, then wait for port to free
+_pids=$(lsof -ti ":${REVIEWER_PORT}" 2>/dev/null || true)
+if [[ -n "$_pids" ]]; then
+    log "  killing stale reviewer PID(s) $_pids on :${REVIEWER_PORT}"
+    echo "$_pids" | xargs kill -9 2>/dev/null || true
+fi
+for _w in $(seq 1 15); do
+    _still=$(lsof -ti ":${REVIEWER_PORT}" 2>/dev/null || true)
+    [[ -z "$_still" ]] && break
+    [[ $_w -eq 15 ]] && { log "ERROR: Port ${REVIEWER_PORT} still in use after 15s."; exit 1; }
+    sleep 1
 done
 
 # shellcheck source=/dev/null
 source "$VENV"
-
-# Try primary coder model; fall back to 27B if path doesn't exist locally
-CODER_PATH="$HOME/Models/Qwen2.5-Coder-32b"
-if [[ ! -d "$CODER_PATH" ]]; then
-    log "Qwen2.5-Coder-32B not found at ~/Models/Qwen2.5-Coder-32b — falling back to $CODER_FALLBACK"
-    CODER_PATH="$CODER_FALLBACK"
-fi
-
-nohup mlx_lm.server --model "$CODER_PATH" --port "$CODER_PORT" \
-    > "$OUTDIR/coder-server.log" 2>&1 &
-CODER_PID=$!
 
 REVIEWER_PATH="$HOME/Models/Devstral"
 [[ ! -d "$REVIEWER_PATH" ]] && REVIEWER_PATH="$REVIEWER_MODEL"
@@ -94,15 +84,15 @@ nohup mlx_lm.server --model "$REVIEWER_PATH" --port "$REVIEWER_PORT" \
     > "$OUTDIR/reviewer-server.log" 2>&1 &
 REVIEWER_PID=$!
 
-log "Waiting for both servers (up to 10 min)…"
+log "Waiting for library (:${CODER_PORT}) + reviewer (:${REVIEWER_PORT})…"
 for i in $(seq 1 120); do
-    if ! kill -0 "$CODER_PID" 2>/dev/null; then
-        log "ERROR: Coder server exited early. Check $OUTDIR/coder-server.log"; exit 1
+    if ! kill -0 "$REVIEWER_PID" 2>/dev/null; then
+        log "ERROR: Reviewer server exited early. Check $OUTDIR/reviewer-server.log"; exit 1
     fi
     coder_ok=false; reviewer_ok=false
     curl -sf "http://127.0.0.1:${CODER_PORT}/health" > /dev/null 2>&1 && coder_ok=true
     curl -sf "http://127.0.0.1:${REVIEWER_PORT}/health" > /dev/null 2>&1 && reviewer_ok=true
-    if $coder_ok && $reviewer_ok; then log "Both servers ready (${i} polls, $((i*5))s)."; break; fi
+    if $coder_ok && $reviewer_ok; then log "Library + reviewer ready (${i} polls, $((i*5))s)."; break; fi
     if [[ $i -eq 120 ]]; then log "ERROR: Servers not ready after 10 min."; exit 1; fi
     sleep 5
 done

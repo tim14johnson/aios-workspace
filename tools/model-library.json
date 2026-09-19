@@ -1,0 +1,124 @@
+{
+  "_comment": "AiOS Model Library — single source of truth for all local models across machines.",
+  "_comment2": "Roles: coder | reviewer | brain | opinion. Tiers: hot (internal SSD) | library (external).",
+
+  "machines": {
+    "mac-studio-64gb": {
+      "ram_gb": 64,
+      "notes": "M2 Ultra, 64 GB unified memory. Flash-Next unusable (GPU OOM + 0.18 tok/s CPU)."
+    }
+  },
+
+  "paths": {
+    "library": "/Volumes/AiOS Repository/Model-Library",
+    "hot": "~/Models"
+  },
+
+  "models": [
+    {
+      "id": "flash-next-180b",
+      "label": "Flash-Next 180B MoE (GGUF IQ4_XS)",
+      "folder": "Flash-Next-180b_90g_moe",
+      "tier": "library",
+      "type": "gguf",
+      "server": "llama-server",
+      "size_gb": 90,
+      "min_ram_gb": 96,
+      "roles": ["coder"],
+      "port": 8090,
+      "launch_args": [
+        "--load-mode", "mmap",
+        "-ngl", "99",
+        "-ot", "ffn_gate_exps=CPU",
+        "-ot", "ffn_down_exps=CPU",
+        "-ot", "ffn_up_exps=CPU",
+        "--cache-type-k", "q4_0",
+        "--cache-type-v", "q4_0",
+        "-c", "8192",
+        "-np", "1"
+      ],
+      "prereq": "sudo sysctl -w iogpu.wired_limit_mb=60416",
+      "machines_blocked": ["mac-studio-64gb"],
+      "notes": "CPU: 0.18 tok/s. GPU: Metal OOM on 64 GB despite sysctl. Reserve for ≥96 GB machine."
+    },
+    {
+      "id": "qwen3-72b",
+      "label": "Qwen3 72B (MLX 4-bit)",
+      "folder": "Qwen3-72b_40g",
+      "tier": "library",
+      "type": "mlx",
+      "hf_id": "mlx-community/Qwen3-72B-4bit",
+      "size_gb": 40,
+      "min_ram_gb": 55,
+      "roles": ["coder", "opinion"],
+      "port": 8080,
+      "status": "not-downloaded",
+      "notes": "Best quality upgrade from 27B. Download with: huggingface-cli download mlx-community/Qwen3-72B-4bit --local-dir <library>/Qwen3-72b_40g"
+    },
+    {
+      "id": "qwen3-27b",
+      "label": "Qwen3.8 27B MoE (MLX 4-bit)",
+      "folder": "Qwen3.8-27b_18g_moe",
+      "tier": "library",
+      "type": "mlx",
+      "hf_id": "mlx-community/Qwen3.8-27B-4bit",
+      "size_gb": 18,
+      "min_ram_gb": 22,
+      "roles": ["coder", "brain", "opinion"],
+      "port": 8080,
+      "status": "in-hf-cache",
+      "notes": "Currently at mlx-models/mlx-community/Qwen3.8-27B-4bit. Move to library folder."
+    },
+    {
+      "id": "qwen3-30b-moe",
+      "label": "Qwen3 30B-A3B MoE (MLX 4-bit)",
+      "folder": "Qwen3-30b-A3B_16g_moe",
+      "tier": "library",
+      "type": "mlx",
+      "hf_id": "mlx-community/Qwen3-30B-A3B-4bit",
+      "size_gb": 16,
+      "min_ram_gb": 20,
+      "roles": ["brain", "opinion"],
+      "port": 8080,
+      "status": "not-downloaded",
+      "notes": "Fast MoE decode. Good as third-opinion or AiOS brain candidate."
+    },
+    {
+      "id": "qwen25-coder-32b",
+      "label": "Qwen2.5 Coder 32B Instruct (MLX 4-bit)",
+      "folder": "Qwen2.5-Coder-32b",
+      "tier": "hot",
+      "type": "mlx",
+      "hf_id": "mlx-community/Qwen2.5-Coder-32B-Instruct-4bit",
+      "size_gb": 18,
+      "min_ram_gb": 22,
+      "roles": ["coder"],
+      "port": 8080,
+      "status": "not-downloaded",
+      "notes": "Primary overnight coder. Code-specialized (5.5T code tokens). Download to ~/Models/."
+    },
+    {
+      "id": "devstral-24b",
+      "label": "Devstral Small 2 (MLX 4-bit)",
+      "folder": "Devstral",
+      "tier": "hot",
+      "type": "mlx",
+      "hf_id": "mlx-community/Devstral-Small-2505-4bit",
+      "size_gb": 14,
+      "min_ram_gb": 18,
+      "roles": ["reviewer"],
+      "port": 8082,
+      "status": "in-hf-cache",
+      "notes": "Primary overnight reviewer. Move from mlx-models/mlx-community/ to ~/Models/Devstral/."
+    }
+  ],
+
+  "overnight_pipeline": {
+    "machine": "mac-studio-64gb",
+    "coder": "qwen25-coder-32b",
+    "coder_fallback": "qwen3-27b",
+    "reviewer": "devstral-24b",
+    "council": ["qwen3-27b", "qwen3-30b-moe"],
+    "gate": "claude"
+  }
+}

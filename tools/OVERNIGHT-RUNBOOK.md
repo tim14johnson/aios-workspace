@@ -1,77 +1,78 @@
 # AiOS Overnight Queue — Runbook
 
-Copy-paste steps for every scenario. No memory required.
+**You run one command at night. Claude handles everything else during the day.**
+
+During a session, Claude writes briefs, saves them to `tools/briefs/`, and adds
+them to `tools/overnight-queue.md` under today's date. You review and approve
+the brief during the session — then kick off the queue when you're done for the night.
 
 ---
 
 ## Every night — Start the queue
 
-**Step 1 — Open Terminal and paste this:**
+**Paste this in Terminal:**
 ```
 cd "/Volumes/AiOS Repository/code" && ./tools/overnight-queue.sh
 ```
 
-That's it. You'll see servers starting, then each brief processing in order.
-When everything is done, you'll get a macOS notification.
+You'll see servers starting, then each brief processing in order.
+macOS notification when done. That's it.
 
 ---
 
 ## Every morning — Check results
 
-**Step 1 — Open Terminal and paste this to see the summary:**
+**See the summary:**
 ```
 cat /tmp/aios-overnight/queue.log | grep -E "━━━|PASS|FAIL|SKIP|complete"
 ```
 
-**Step 2 — Read a specific brief's review:**
+**Open a specific brief's folder:**
 ```
 open /tmp/aios-overnight/
 ```
-That opens Finder. Each brief gets its own folder — open it and read `review.md`.
+Each brief gets its own folder — open it and read `review.md`.
 
-**Step 3 — Bring Xcode / Claude up and run the gate on anything marked PASS.**
+**If a brief PASSed:** bring it into Xcode / Claude and run the final gate.
+**If a brief FAILed:** the review will say why. Tell Claude in the next session.
 
 ---
 
-## Add a brief to tonight's queue
+## If you want to see what's queued for tonight
 
-**Step 1 — Open the queue file:**
 ```
 open -a TextEdit "/Volumes/AiOS Repository/code/tools/overnight-queue.md"
 ```
 
-**Step 2 — Find or add today's date section.** It looks like this:
-```
-## 2026-09-20
-```
-If today's section doesn't exist yet, add it at the top of the file (below the intro paragraph).
-
-**Step 3 — Add your brief underneath it:**
-```
-- [ ] /tmp/aios-overnight/your-brief-name.md | /Volumes/AiOS Repository/code
-```
-
-Change `your-brief-name.md` to the actual brief path.
-Change the path after `|` to the target workspace if it's not the main code repo.
-Save and close TextEdit.
-
-The queue runner finds today's date section automatically. It skips `- [x]` lines
-(already done) and processes every `- [ ]` line under today's heading, top to bottom.
-
-You can add future dates too — they won't run until that night.
+You'll see date sections with `- [ ]` items for tonight and `- [x]` items already done.
+You don't need to edit this file — Claude manages it. But you can remove a line
+if you change your mind about a brief before running the queue.
 
 ---
 
-## Remove a brief from the queue (before it runs)
+## Troubleshooting
 
-Open the queue file, delete the line or change `[ ]` to `[-]`.
+**"No briefs queued for today"** — the queue file has no `- [ ]` items under today's date.
+Either add a date section yourself or check with Claude in the next session.
+
+**"Coder server exited early"** — check the log:
+```
+cat /tmp/aios-overnight/coder-server.log | tail -20
+```
+
+**"Coder failed / timed out"** — the brief is too long. Tell Claude; we'll split it.
+
+**Results folder is gone** — `/tmp/` clears on reboot. Results only survive until
+next restart. If you need to keep a result:
+```
+cp -r /tmp/aios-overnight/brief-name-folder ~/Desktop/
+```
 
 ---
 
 ## One-time setup — Download models
 
-Run each block separately. The internal models are priority (used every night).
-The external library models are large and optional — do them when you have time.
+Run when you have time. Internal models are priority (used every night).
 
 **Internal — Qwen2.5 Coder 32B (overnight coder, ~18 GB):**
 ```
@@ -83,7 +84,7 @@ hf download mlx-community/Qwen2.5-Coder-32B-Instruct-4bit --local-dir ~/Models/Q
 hf download mlx-community/Devstral-Small-2505-4bit --local-dir ~/Models/Devstral
 ```
 
-**External library — Qwen3 72B for large jobs or second opinion (~40 GB):**
+**External library — Qwen3 72B for large jobs (~40 GB):**
 ```
 mkdir -p "/Volumes/AiOS Repository/Model-Library/Qwen3-72b_40g"
 hf download mlx-community/Qwen3-72B-4bit --local-dir "/Volumes/AiOS Repository/Model-Library/Qwen3-72b_40g"
@@ -109,35 +110,10 @@ mv ~/Models/mtp-Qwen3.8-Flash-Next-shared-Q4_K_M.gguf "/Volumes/AiOS Repository/
 Move Qwen 3.8 27B from the HF cache to the external library:
 ```
 mkdir -p "/Volumes/AiOS Repository/Model-Library/Qwen3.8-27b_18g_moe"
-mv "/Volumes/AiOS Repository/mlx-models/mlx-community/Qwen3.8-27B-4bit" \
-   "/Volumes/AiOS Repository/Model-Library/Qwen3.8-27b_18g_moe"
+mv "/Volumes/AiOS Repository/mlx-models/mlx-community/Qwen3.8-27B-4bit" "/Volumes/AiOS Repository/Model-Library/Qwen3.8-27b_18g_moe"
 ```
 
-Move Devstral from the HF cache to internal (once the `hf download` above is done, skip this):
+Move Devstral from the HF cache to internal (skip if you ran the download above):
 ```
-mv "/Volumes/AiOS Repository/mlx-models/mlx-community/Devstral-Small-2505-4bit" \
-   ~/Models/Devstral
-```
-
----
-
-## Troubleshooting
-
-**"Queue is empty"** — open the queue file, make sure the lines start with `- [ ]` not `- [x]`.
-
-**"Coder server exited early"** — check the log:
-```
-cat /tmp/aios-overnight/coder-server.log | tail -20
-```
-
-**"Coder failed / timed out"** — the brief is probably too long. Split it into two shorter briefs and add both to the queue.
-
-**Results folder is gone** — `/tmp/` is cleared on reboot. Results only survive until next restart. If you want to keep a result, copy the review.md somewhere before rebooting:
-```
-cp /tmp/aios-overnight/your-brief-name/review.md ~/Desktop/
-```
-
-**"hf command not found"** — run this once:
-```
-pip install huggingface_hub[cli]
+mv "/Volumes/AiOS Repository/mlx-models/mlx-community/Devstral-Small-2505-4bit" ~/Models/Devstral
 ```

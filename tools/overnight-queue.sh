@@ -6,6 +6,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 QUEUE="${2:-$SCRIPT_DIR/overnight-queue.md}"
 OUTDIR="/tmp/aios-overnight"
 VENV="$HOME/.mlx-venv/bin/activate"
@@ -110,6 +111,8 @@ for RAW_LINE in "${PENDING[@]}"; do
         WORKSPACE="$DEFAULT_WORKSPACE"
     fi
     BRIEF="${BRIEF%% *}"   # trim any trailing spaces/comments
+    # Resolve relative paths against repo root
+    [[ "$BRIEF" != /* ]] && BRIEF="$REPO_ROOT/$BRIEF"
 
     BRIEF_NAME="$(basename "${BRIEF%.md}")"
     BRIEF_OUTDIR="$OUTDIR/$BRIEF_NAME"

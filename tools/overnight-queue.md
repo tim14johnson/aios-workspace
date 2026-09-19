@@ -1,7 +1,7 @@
 # AiOS Overnight Queue
 
-Add briefs under a `## YYYY-MM-DD` heading matching the night you want them to run.
-The queue runner picks today's date automatically — no other changes needed.
+Claude adds briefs here during the day. You just run the queue at night.
+The runner picks today's date section automatically.
 
 Each line: `- [ ] <path-to-brief.md> | <workspace-path>`
 Completed items get a timestamp appended automatically.
@@ -9,9 +9,9 @@ Completed items get a timestamp appended automatically.
 ---
 
 ## 2026-09-19
-- [x] /tmp/aios-overnight/ffa-calendar-brief.md | /Volumes/AiOS Repository/code  ← 2026-09-19 (timed out — GPU not viable on this machine)
+- [x] tools/briefs/2026-09-19-ffa-calendar.md | /Volumes/AiOS Repository/code  ← timed out (GPU/CPU both failed on 64GB; Claude wrote it directly instead)
 
 ## 2026-09-20
-- [ ] /tmp/aios-overnight/ffa-calendar-brief.md | /Volumes/AiOS Repository/code
-- [ ] /tmp/aios-overnight/fix-cover-letter-and-compute-worker.md | /Volumes/AiOS Repository/code
-- [ ] /tmp/aios-overnight/ffa-dashboard-brief.md | /Volumes/AiOS Repository/code
+- [ ] tools/briefs/2026-09-19-ffa-calendar.md | /Volumes/AiOS Repository/code
+- [ ] tools/briefs/2026-09-19-cover-letter-and-compute-worker.md | /Volumes/AiOS Repository/code
+- [ ] tools/briefs/2026-09-19-ffa-dashboard.md | /Volumes/AiOS Repository/code

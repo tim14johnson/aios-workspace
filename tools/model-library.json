@@ -5,7 +5,7 @@
   "machines": {
     "mac-studio-64gb": {
       "ram_gb": 64,
-      "notes": "M2 Ultra, 64 GB unified memory. Flash-Next unusable (GPU OOM + 0.18 tok/s CPU)."
+      "notes": "M2 Ultra, 64 GB unified memory. Flash-Next unusable (GPU OOM + 0.18 tok/s CPU). Qwen3-235B too large (~120 GB)."
     }
   },
 
@@ -38,22 +38,23 @@
         "-np", "1"
       ],
       "prereq": "sudo sysctl -w iogpu.wired_limit_mb=60416",
+      "status": "in-library",
       "machines_blocked": ["mac-studio-64gb"],
       "notes": "CPU: 0.18 tok/s. GPU: Metal OOM on 64 GB despite sysctl. Reserve for ≥96 GB machine."
     },
     {
-      "id": "qwen3-72b",
-      "label": "Qwen3 72B (MLX 4-bit)",
-      "folder": "Qwen3-72b_40g",
+      "id": "qwen3-32b",
+      "label": "Qwen3 32B (MLX 4-bit)",
+      "folder": "Qwen3-32b_18g",
       "tier": "library",
       "type": "mlx",
-      "hf_id": "mlx-community/Qwen3-72B-4bit",
-      "size_gb": 40,
-      "min_ram_gb": 55,
+      "hf_id": "mlx-community/Qwen3-32B-4bit",
+      "size_gb": 18,
+      "min_ram_gb": 22,
       "roles": ["coder", "opinion"],
       "port": 8080,
       "status": "not-downloaded",
-      "notes": "Best quality upgrade from 27B. Download with: huggingface-cli download mlx-community/Qwen3-72B-4bit --local-dir <library>/Qwen3-72b_40g"
+      "notes": "Largest dense Qwen3 model. Qwen3 has no 72B size — lineup is 32B (dense) then 235B (MoE). Good quality upgrade slot. Same RAM footprint as coder."
     },
     {
       "id": "qwen3-27b",
@@ -67,7 +68,7 @@
       "roles": ["coder", "brain", "opinion"],
       "port": 8080,
       "status": "in-hf-cache",
-      "notes": "Currently at mlx-models/mlx-community/Qwen3.8-27B-4bit. Move to library folder."
+      "notes": "Currently at mlx-models/mlx-community/Qwen3.8-27B-4bit. Move to library folder. Used as coder fallback when Qwen2.5-Coder-32B is unavailable."
     },
     {
       "id": "qwen3-30b-moe",
@@ -80,8 +81,8 @@
       "min_ram_gb": 20,
       "roles": ["brain", "opinion"],
       "port": 8080,
-      "status": "not-downloaded",
-      "notes": "Fast MoE decode. Good as third-opinion or AiOS brain candidate."
+      "status": "downloaded",
+      "notes": "Fast MoE decode. Good as third-opinion or AiOS brain candidate. Downloaded 2026-09-19."
     },
     {
       "id": "qwen25-coder-32b",
@@ -94,8 +95,8 @@
       "min_ram_gb": 22,
       "roles": ["coder"],
       "port": 8080,
-      "status": "not-downloaded",
-      "notes": "Primary overnight coder. Code-specialized (5.5T code tokens). Download to ~/Models/."
+      "status": "downloaded",
+      "notes": "Primary overnight coder. Code-specialized (5.5T code tokens). Downloaded 2026-09-19 to ~/Models/Qwen2.5-Coder-32b."
     },
     {
       "id": "devstral-24b",
@@ -108,8 +109,8 @@
       "min_ram_gb": 18,
       "roles": ["reviewer"],
       "port": 8082,
-      "status": "in-hf-cache",
-      "notes": "Primary overnight reviewer. Move from mlx-models/mlx-community/ to ~/Models/Devstral/."
+      "status": "downloaded",
+      "notes": "Primary overnight reviewer. Downloaded 2026-09-19 to ~/Models/Devstral."
     }
   ],
 

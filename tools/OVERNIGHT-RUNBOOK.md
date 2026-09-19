@@ -84,11 +84,12 @@ hf download mlx-community/Qwen2.5-Coder-32B-Instruct-4bit --local-dir ~/Models/Q
 hf download mlx-community/Devstral-Small-2505-4bit --local-dir ~/Models/Devstral
 ```
 
-**External library — Qwen3 72B for large jobs (~40 GB):**
+**External library — Qwen3 32B for large jobs (~18 GB) — biggest dense Qwen3:**
 ```
-mkdir -p "/Volumes/AiOS Repository/Model-Library/Qwen3-72b_40g"
-hf download mlx-community/Qwen3-72B-4bit --local-dir "/Volumes/AiOS Repository/Model-Library/Qwen3-72b_40g"
+mkdir -p "/Volumes/AiOS Repository/Model-Library/Qwen3-32b_18g"
+hf download mlx-community/Qwen3-32B-4bit --local-dir "/Volumes/AiOS Repository/Model-Library/Qwen3-32b_18g"
 ```
+Note: Qwen3 has no 72B model. Sizes go 32B (dense) → 235B MoE. The 235B (~120 GB) won't fit on this machine.
 
 **External library — Qwen3 30B MoE for fast third opinion (~16 GB):**
 ```

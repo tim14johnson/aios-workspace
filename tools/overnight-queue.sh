@@ -32,7 +32,10 @@ if [[ ! -f "$QUEUE" ]]; then
 fi
 
 # Extract unchecked briefs from today's date section only
-mapfile -t PENDING < <(python3 - "$QUEUE" "$TODAY" <<'PY'
+PENDING=()
+while IFS= read -r _line; do
+    PENDING+=("$_line")
+done < <(python3 - "$QUEUE" "$TODAY" <<'PY'
 import sys, re
 text = open(sys.argv[1]).read()
 date = sys.argv[2]

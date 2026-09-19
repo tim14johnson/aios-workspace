@@ -11,13 +11,17 @@ QUEUE="${2:-$SCRIPT_DIR/overnight-queue.md}"
 OUTDIR="/tmp/aios-overnight"
 VENV="$HOME/.mlx-venv/bin/activate"
 
-REVIEWER_MODEL="mlx-community/Devstral-Small-2505-4bit"
-# 8080 = AiOS library port (brain-server, launchd-managed — never kill/start here)
-# 8082 = Devstral reviewer (overnight only)
-# The coder talks to whatever the library has loaded on :8080.
-# Set EXECUTOR_MODEL to match whatever the library is serving.
+# ── Model library ports ───────────────────────────────────────────────────────
+# FUTURE: orchestrator/distributor pulls the right model from the library for
+# each job type (coding, review, reasoning, embedding…) and checks it back in.
+# Models may run on MLX or llama.cpp; each gets its own stable port so jobs can
+# run concurrently without competing for RAM.
+#
+# TODAY: a single library server handles both coding and review passes.
+# The review prompt goes to the same port as the coder — one model in RAM.
+# Replace REVIEW_URL below once the multi-port library is wired.
 CODER_PORT=8080
-REVIEWER_PORT=8082
+REVIEW_URL="http://127.0.0.1:${CODER_PORT}"  # same server until library routing exists
 export EXECUTOR_MODEL="mlx-community/Qwen3.8-27B-4bit"
 DEFAULT_WORKSPACE="/Volumes/AiOS Repository/code"
 
@@ -57,43 +61,21 @@ if [[ ${#PENDING[@]} -eq 0 ]]; then
 fi
 log "Found ${#PENDING[@]} brief(s) for $TODAY."
 
-# ── Start reviewer only — coder is the always-on library server ───────────────
-# :8080 = AiOS model library (launchd brain-server — never touch, always live)
-# :8082 = Devstral reviewer (we manage this one)
-log "=== Verifying library (:${CODER_PORT}) + starting reviewer (:${REVIEWER_PORT}) ==="
-
-# Kill any stale reviewer on :8082, then wait for port to free
-_pids=$(lsof -ti ":${REVIEWER_PORT}" 2>/dev/null || true)
-if [[ -n "$_pids" ]]; then
-    log "  killing stale reviewer PID(s) $_pids on :${REVIEWER_PORT}"
-    echo "$_pids" | xargs kill -9 2>/dev/null || true
-fi
-for _w in $(seq 1 15); do
-    _still=$(lsof -ti ":${REVIEWER_PORT}" 2>/dev/null || true)
-    [[ -z "$_still" ]] && break
-    [[ $_w -eq 15 ]] && { log "ERROR: Port ${REVIEWER_PORT} still in use after 15s."; exit 1; }
-    sleep 1
-done
+# ── Verify library server is up ───────────────────────────────────────────────
+# :8080 = AiOS model library (launchd brain-server — never kill/start here)
+# Both coding and review passes share this server until multi-port routing lands.
+log "=== Verifying library (:${CODER_PORT}) ==="
 
 # shellcheck source=/dev/null
 source "$VENV"
 
-REVIEWER_PATH="$HOME/Models/Devstral"
-[[ ! -d "$REVIEWER_PATH" ]] && REVIEWER_PATH="$REVIEWER_MODEL"
-nohup mlx_lm.server --model "$REVIEWER_PATH" --port "$REVIEWER_PORT" \
-    > "$OUTDIR/reviewer-server.log" 2>&1 &
-REVIEWER_PID=$!
-
-log "Waiting for library (:${CODER_PORT}) + reviewer (:${REVIEWER_PORT})…"
+log "Waiting for library (:${CODER_PORT})…"
 for i in $(seq 1 120); do
-    if ! kill -0 "$REVIEWER_PID" 2>/dev/null; then
-        log "ERROR: Reviewer server exited early. Check $OUTDIR/reviewer-server.log"; exit 1
+    if curl -sf "http://127.0.0.1:${CODER_PORT}/health" > /dev/null 2>&1; then
+        log "Library ready (${i} polls, $((i*5))s)."
+        break
     fi
-    coder_ok=false; reviewer_ok=false
-    curl -sf "http://127.0.0.1:${CODER_PORT}/health" > /dev/null 2>&1 && coder_ok=true
-    curl -sf "http://127.0.0.1:${REVIEWER_PORT}/health" > /dev/null 2>&1 && reviewer_ok=true
-    if $coder_ok && $reviewer_ok; then log "Library + reviewer ready (${i} polls, $((i*5))s)."; break; fi
-    if [[ $i -eq 120 ]]; then log "ERROR: Servers not ready after 10 min."; exit 1; fi
+    if [[ $i -eq 120 ]]; then log "ERROR: Library not ready after 10 min."; exit 1; fi
     sleep 5
 done
 
@@ -151,10 +133,10 @@ for RAW_LINE in "${PENDING[@]}"; do
         BRIEF_TEXT=$(<"$BRIEF")
         CODER_OUTPUT=$(<"$BRIEF_OUTDIR/coder-output.md")
         log "  Review pass → $BRIEF_OUTDIR/review.md"
-        python3 - "$BRIEF_TEXT" "$CODER_OUTPUT" "$BRIEF_OUTDIR/review.md" <<'PY'
+        python3 - "$BRIEF_TEXT" "$CODER_OUTPUT" "$BRIEF_OUTDIR/review.md" "$REVIEW_URL" <<'PY'
 import json, pathlib, sys, urllib.request
 
-brief, coder_output, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
+brief, coder_output, out_path, review_url = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 prompt = f"""You are a senior Swift engineer doing a pre-commit code review.
 
 === BRIEF ===
@@ -174,12 +156,12 @@ Check and flag specific issues:
 First line: PASS or FAIL. Then bullet list of issues."""
 
 payload = json.dumps({
-    "model": "devstral",
+    "model": "default",  # library serves whatever is loaded; replace with model ID when routing lands
     "messages": [{"role": "user", "content": prompt}],
     "max_tokens": 800, "temperature": 0
 }).encode()
 req = urllib.request.Request(
-    "http://127.0.0.1:8082/v1/chat/completions",
+    f"{review_url}/v1/chat/completions",
     data=payload, headers={"Content-Type": "application/json"}, method="POST"
 )
 try:

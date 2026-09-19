@@ -8,7 +8,7 @@ Completed items get a timestamp appended automatically.
 
 ---
 
-## 2026-09-19
+## 2026-09-18 (Flash-Next trial — aborted)
 - [x] tools/briefs/2026-09-19-ffa-calendar.md | /Volumes/AiOS Repository/code  ← timed out (GPU/CPU both failed on 64GB; Claude wrote it directly instead)
 
 ## 2026-09-19

@@ -1,5 +1,18 @@
 # AGENTS.md — AiOS Project Instructions
 
+## Core Thesis — read this before anything else, every session
+
+**The problem:** too much data spread in too many places.
+**The solve:** have AI cross-reference all of it in a way that surfaces meaningful, actionable suggestions.
+**The biggest challenge:** AI hallucinates.
+**The solve for that:** confidence ratings on every claim — a human only decides the genuinely ambiguous cases, the "last 20%"; the machine handles the tangible 80% on its own. (This is why *every* engine in this codebase is rule-first with AI behind a seam, and why the grounding gate — "no citation, no claim" — is non-negotiable.)
+**How it's delivered:** a central Hub does the heavy processing; spoke devices run what they can locally, but stay deeply intertwined with the Hub — never siloed, never a second source of truth.
+**What makes this different from every other AI-productivity tool:** local processing of *your own* content, via the correct AI model, on-device, reaching the correct data through one local index plus external connectors — not a cloud service that ingests your data to serve everyone else's.
+
+**The single most important reframe, easy to lose sight of mid-build:** the spoke apps (`AiOSHub`, `AiOSBusiness`, `AiOSMyFamily`) and every vertical inside them (Job Seeker, Tidy Files, FFA, ExSellerator, Finance, ...) are **examples of the AiOS concept — proof it works on real domains — not the product itself.** The product is the spine: one index, one confidence-scored analytics engine, the Hub/Spoke split, the connector library. A vertical's feature request is never a reason to pull spine work sideways, and a real gap in the spine should never get patched with a vertical-specific workaround — fix it in the spine, once, for every vertical.
+
+Full reasoning behind this, and the current gap between it and what's actually built: `context/inbox/20260922_back-to-basics.md` (Tim's own words, the source) → `docs/architecture/2026-09-22-back-to-basics-review.md` (the gap analysis + spine roadmap this thesis anchors).
+
 ## What this is
 AiOS — a hub-and-spoke personal AI "context OS" for Apple platforms. A macOS **Hub**
 (Mac Studio) does heavy analysis and orchestration; iOS/macOS **Spoke** apps observe

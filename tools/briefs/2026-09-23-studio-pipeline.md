@@ -123,6 +123,8 @@ Cache the text through `TagCache` (already keyed by path, modDate and size; it a
 
 ## The spine this pipeline feeds (decided with Tim, 2026-09-23)
 
+**Full architecture reference:** `docs/architecture/2026-09-23-index-spine.md` (everything is a lens; items, entities, associations; lens kinds; guardrails; sequence). This section is the pipeline's slice of it.
+
 **The product is the index:** a searchable map of everything stored (for Tim, the NAS; for other users, wherever their data lives), plus an association graph of every vertical each file touches. Finance, Jobs and FFA aren't separate searches. Each is a *lens* over the same index. The analytics/insight engine assembles a blueprint from lens queries (datasets), a model, and connectors, and turns the result into suggestions, or into autonomous moves once confidence is earned.
 
 ```
@@ -154,6 +156,8 @@ File store (millions)          ObjectStore (hundreds–thousands)
 ---
 
 ## Slice 3 — The map: every file is an entry in the index
+
+**Scope note (2026-09-23): build an *item* store with a `kind`, files first,** not a files-only store. Email (`MailIndex`), photos, Plaud recordings and devices join the same map later, for the People / Review Matches / Profile lenses (see `docs/architecture/2026-09-23-index-spine.md`). Only files are populated in this slice.
 
 Every crawled file (not just moved ones) gets an entry in a NAS-scale file store: content hash (identity), locations (path history), size/dates/type, and a pointer to its `TagCache` text and tags. It's written at crawl time, not apply time. The crawl ledger and file store should converge; decide in the brief whether the ledger becomes a view of the file store. `Association` gains **confidence, provenance, review state (pending/confirmed/rejected), and tenant**. File↔entity edges start with what the crawl already knows (folder/org heuristics from `TidyIndexObjectBridge`), now applied to every file.
 

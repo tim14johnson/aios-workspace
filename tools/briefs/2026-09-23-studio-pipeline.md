@@ -171,17 +171,19 @@ File store (millions)          ObjectStore (hundreds–thousands)
 - `EdgeStore` (SwiftData, `edge-index.store`): associations with confidence, source + evidence, review state and tenant. Re-proposals never override a human decision.
 - The crawl writes items with every batch. Items follow approved moves, auto-apply, undo, revert, and Finder changes. A one-time backfill seeds the map from `TagCache`. The night summary reports "Map: N items (M recorded tonight)".
 
-**3b — still to do:**
-- **First edges from what the crawl already knows** (schema assignment → file ↔ Organization / Project), written as `pending` edges with the classifier's confidence. **Needs Tim's decision first:** organizations are entities in `ObjectStore`, which is per-tenant today, but decision B says files and orgs aren't a tenant's. Recommendation: one shared entity space for orgs and people, with the tenant on the edge. That's a change to `ObjectStore`'s per-tenant layout, so it's a decision, not a detail.
-- Migrate the TidyIndex bridge's File objects and `AssociationStore` edges into `ItemStore` / `EdgeStore`, then retire the bridge's File objects (decision A).
-- Save the content hashes duplicate detection already computes (`setContentHash`), so identical bytes in several places are visible on the map (and S2's hash cache falls out of it).
+**✅ 3b (first part) DONE (2026-09-23).** AiOSCore `c2f1693`, AiOSHub `de3a7a8`. AiOSCore 933/933, AiOSHub 41/41, both spokes build.
+- **Tim decided: one shared set of entities.** `ObjectStore.sharedEntities()` (`AiOS/Entities/shared.json`). The visibility rule is in the spine doc §2.6.
+- The crawl proposes **file → shared Project** links (`part_of`, pending, the classifier's confidence, the folder trail as evidence). The tenant comes from the taxonomy's top-level category: MyBusiness → business; MyFamily / MyHousehold → family. That level is a category today, not an organization, so **no Organization entities or links yet**; those come with the org-first tree (Slice 5).
+- Duplicate detection's hashes are stored on the map. `edges(to:)` filters inside the query.
+
+**Slice 3 — still to do:**
+- **Move existing vertical entities into the shared store,** after `HubRequestRouter` enforces the edge-based visibility rule (spine doc §2.6). Never before: per-tenant files are today's isolation.
+- Migrate the TidyIndex bridge's File objects and `AssociationStore` edges into `ItemStore` / `EdgeStore`. Clean up the category-as-Organization entities the old bridge created ("MyBusiness", etc.).
 - Freshness: unchanged files skipped by the ledger don't refresh `lastSeenAt`, and deleted files stay on the map. Needs a cheap "still there" sweep.
-- `EdgeStore.edges(to:)` filters type/tenant/rejected after its fetch limit; move those into the predicate before lenses depend on large result sets.
-- Move tracking in the Hub is wired but only covered by the store's own tests, not a controller-level test (the apply path needs a real destination folder).
+- Tim's approvals and schema corrections should confirm or redirect these links. That's Slice 6's learning loop; the edges already have the review state for it.
+- Move tracking in the Hub is covered only by store-level tests.
 
-**Scope note (2026-09-23): build an *item* store with a `kind`, files first,** not a files-only store. Email (`MailIndex`), photos, Plaud recordings and devices join the same map later, for the People / Review Matches / Profile lenses (see `docs/architecture/2026-09-23-index-spine.md`). Only files are populated in this slice.
-
-Every crawled file (not just moved ones) gets an entry in a NAS-scale file store: content hash (identity), locations (path history), size/dates/type, and a pointer to its `TagCache` text and tags. It's written at crawl time, not apply time. The crawl ledger and file store should converge; decide in the brief whether the ledger becomes a view of the file store. `Association` gains **confidence, provenance, review state (pending/confirmed/rejected), and tenant**. File↔entity edges start with what the crawl already knows (folder/org heuristics from `TidyIndexObjectBridge`), now applied to every file.
+---
 
 ## Slice 4 — Lenses: one index, many verticals
 

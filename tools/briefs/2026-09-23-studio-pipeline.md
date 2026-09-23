@@ -7,7 +7,7 @@
 **Tim's core tenet (2026-09-23):** *"I need this thing to start getting smarter about all of the data, in all of the places."*
 
 **Decisions already made (2026-09-23), don't re-litigate:**
-- **One place for everything:** the NAS, under the AiOS folder tree. Deduped, properly named, foldered by **Business / MyFamily**. A sync folder or cloud for active data comes later and is not in scope.
+- **One place for everything:** the NAS, under the AiOS folder tree. Deduped, properly named, foldered by **Organization / Sub-org / Category / Project** (no Business/MyFamily layer; see decision C below). A sync folder or cloud for active data comes later and is not in scope.
 - **The Mac Studio (the Hub) does all the heavy work:** crawl, hash, OCR, classify, apply. Spokes do none of it.
 - **Other Macs are reached by macOS File Sharing**, mounted on the Studio and listed in `OrganizerController.nasVolumePaths`, exactly like the NAS. That list already crawls any path that's currently mounted (`OrganizerController.swift:911-921`). The old Intel Macs are handled the same way.
 - **Nothing is distributed.** A throughput measurement (Slice 1) decides whether that ever changes.
@@ -30,11 +30,18 @@ Secondary, fix alongside if cheap:
 - **S2:** Duplicate detection re-hashes every same-size candidate on every night pass, with no hash cache (`Duplicates.swift:123-132` via `OrganizerController.swift:1196`). Over SMB, that's re-reading the same bytes nightly.
 - **S3:** Listed volumes that aren't mounted are skipped silently (`:919`). With remote Macs in the list, "the MBP was asleep" must show up in the night summary.
 
-Slices below are in dependency order. **Slice 1 goes to the CLI now.** Slices 2–4 are scoped enough to sequence, and each gets its own full brief when its turn comes.
+Slices below are in dependency order. **Slice 1 goes to the CLI now.** Slices 2–6 are scoped enough to sequence, and each gets its own full brief when its turn comes. Slices 3–6 build the spine described in "The spine this pipeline feeds" below.
 
 ---
 
 ## Slice 1 — Make it survive "everything" (build now)
+
+**✅ DONE (2026-09-23).** AiOSCore `2afe88b`, AiOSHub `6ab0888`. AiOSCore 917/917 green; AiOSHub 31/31 green; AiOSBusiness and AiOSMyFamily macOS builds green.
+- 1a: append-only JSONL ledger with compaction and migration. **Also fixed:** the old `.iso8601` dates dropped sub-second precision, so after every relaunch every file with a sub-second modDate looked changed and the crawl effectively started over.
+- 1b: option (i), a persisted queue (`TidyPendingQueueStore`). (ii) was rejected because rows are approved by default: a rejected file would have come back pre-approved.
+- 1c, 1d, and S1 (throttled regrouping): done. **S2 (hash cache) deferred:** it needs a schema change to the shared cross-vertical `TagCache`.
+- **Found and fixed on the way:** the AiOSHub test host is the real app. Tests read and wrote Tim's real Tidy Files settings, crawled his real scan folders via the launch-time Spotlight → night pass, and overwrote his remembered source folder. Tidy settings, ledger, queue and metrics are now isolated under XCTest (`TidyDefaults`), and Spotlight indexing is skipped there.
+- **Not yet covered by a controller-level test** (the paths need real UserDefaults-backed folders): the unmounted-volume summary (covered at the `TidyNightMetrics` level) and `process(url:)` forgetting displaced rows (covered at the `CrawlLedger.forget(paths:)` level).
 
 ### 1a. `CrawlLedger`: incremental persistence
 Replace the rewrite-everything write with an append-only log. Follow the JSONL pattern `FeedbackLog`/`EntityDecisionLedger` already use; don't invent a third storage style. Suggested shape:
@@ -65,7 +72,7 @@ If either grows beyond small, stop and report instead; they can be Slice 1.5.
 ### Slice 1 non-goals
 - No change to classification logic, schema, destinations, auto-apply thresholds, or what gets moved.
 - No spoke/`ComputeJobQueue` changes (shelved).
-- No Business / MyFamily routing change (that's Slice 3's decision).
+- No routing or folder-tree change (that's Slice 5).
 - No new UI screens.
 
 ### Slice 1 tests
@@ -103,6 +110,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 
 ## Slice 2 — Read the documents (next)
 
+Every lens in Slice 4 depends on this: a finance, jobs or FFA lens can't see a scanned 1099 or offer letter without its text.
+
 Close F3. Before classification, build `contentText` for documents, not just images:
 - PDF text layer (PDFKit; `ContentTagger` already does this. Hoist it so it runs once and both classification and tagging use it).
 - **Vision OCR for scanned PDFs**, where the text layer is empty. `ContentDescriber` / `PDFCatalogIngester` already use `VNRecognizeTextRequest`, so reuse that.
@@ -112,34 +121,63 @@ Cache the text through `TagCache` (already keyed by path, modDate and size; it a
 
 ---
 
-## Slice 3 — Business / MyFamily routing (decision needed from Tim before briefing)
+## The spine this pipeline feeds (decided with Tim, 2026-09-23)
 
-Today there's one `activeSchemaPolicy` (`OrganizerController.swift:332`). `DestinationSchema` is per-tenant, per-subtree (`DestinationSchema.swift:5`), but nothing decides *which tenant a file belongs to*. Options to decide between:
-- **A. Rules first:** source folder or volume, known org names (the ObjectStore Organizations), and known clients (Finance/Valley Perinatal) map to Business. Everything else goes to MyFamily, with an "unsure" bucket for review.
-- **B. A classifier over content** (needs Slice 2), with the rules as strong priors.
-- **Recommended: A, then B,** with "unsure" always going to review, never auto-applied. A misrouted file crosses the tenant boundary, and that's the costliest mistake this pipeline can make.
+**The product is the index:** a searchable map of everything stored (for Tim, the NAS; for other users, wherever their data lives), plus an association graph of every vertical each file touches. Finance, Jobs and FFA aren't separate searches. Each is a *lens* over the same index. The analytics/insight engine assembles a blueprint from lens queries (datasets), a model, and connectors, and turns the result into suggestions, or into autonomous moves once confidence is earned.
 
-Also in this slice: the tenant check on `HubRequestRouter`'s `.claimJob`/`.submitResult` (flagged in the shelved brief) doesn't matter while spokes do nothing. Re-check it if that changes.
+```
+File store (millions)          ObjectStore (hundreds–thousands)
+  file: hash, locations,         entity: person, org, project,
+        text/tags pointer                job application, tax year,
+                                         FFA chapter…
+          \                          /
+           └──── Associations ──────┘
+     file ↔ entity   ("this PDF is Valley Perinatal's 2025 invoice")
+     file ↔ vertical ("relevant to Finance, 0.92")
+     entity ↔ entity ("Tim works for Valley Perinatal")
+     each edge: confidence · provenance · review state · tenant
+```
+
+**Decisions:**
+- **A. Files get their own store, built for NAS scale** (SQLite/SwiftData, like `TagCache`). `ObjectStore` keeps entities; it's load-all/save-all JSON sized for "tens-to-hundreds of entities" by its own doc, so it can't hold a NAS. The two are peers, and associations link them.
+- **B. Files have no tenant. Associations carry it.** One file can be Business context and MyFamily context at once, without copies. (This reverses the 2026-09-22 "duplicate files that live in both" direction.)
+- **C. The NAS tree has no Business/MyFamily layer.** It starts at Organization: `Org / Sub-org / Category / Project / …`, per the defined schema. Business and family still separate visually because the orgs themselves differ (Valley Perinatal, Mazzaroth Pictures, Johnson Family/Household, FFA). A file's single physical home comes from its strongest organization association. Everything else about it is associations. The folder tree is a browsable *view*, not the source of truth. If NAS access is ever shared, DSM permissions go per organization folder. *(Code impact: `TidyTaxonomy.defaultPolicy` currently puts MyBusiness / MyFamily / MyHousehold at the top. Change it in Slice 5, not before.)*
+- **This is Phase 0 (index unification), finished for files.** From here on, no new vertical-specific file discoverers (e.g. `TaxDocumentDiscoverer`, a Finance-only `CrossDomainFileTagStore`). Verticals query the index.
+
+**Gaps against the spine, verified in code 2026-09-23:**
+- Six differently-shaped stores, none of which is the map: `TidyIndex` (only files Tidy Files *moved*), `TagCache`, `CrossDomainFileTagStore` (Finance-only, whole-file rewrite per save), `ObjectStore` + `Association`, `SpotlightIndexStore`, `CrawlLedger`.
+- Files reach the graph only on apply (`bridgeToObjectGraph`, called only from the move paths).
+- `Association` has no confidence or review state. That's what suggest-vs-act needs.
+- Search-vs-crawl for Finance was never joined: `FinanceFileDiscoverer.discover` has zero callers, Finance still discovers by filename (`FinanceFlow.swift:378`), and the Hub's finance tags never reach the MyFamily app (no Hub request carries them). Spotlight search can't see the NAS at all, so "search" must mean querying AiOS's own index.
+- WP3 "linked copies" (`linkedCopyRows`, `TidyIndex.recordCopy`) physically copies a multi-person file into each person's folder. Under decision B that's two associations on one file. **Don't build on it.** Retire it, or replace it with Finder aliases, once Slice 3 lands. Don't remove it before then.
 
 ---
 
-## Slice 4 — Learn from Tim (the tenet)
+## Slice 3 — The map: every file is an entry in the index
 
-Close F4. Read `FeedbackLog.events()` and the schema corrections into a **correction memory** that biases future proposals:
-- "Files from this folder or pattern that Tim moved to X" become a learned rule with a confidence that grows with agreement and decays with contradiction.
-- Learned rules are visible and revocable (what the system learned, and from which decisions).
-- Measure it: the share of proposals Tim accepts unedited, tracked per night in the Slice 1c metrics file. **"Getting smarter" becomes a number that should rise.**
-- Persist `schemaEdits` as corrections instead of clearing them on each fresh scan.
+Every crawled file (not just moved ones) gets an entry in a NAS-scale file store: content hash (identity), locations (path history), size/dates/type, and a pointer to its `TagCache` text and tags. It's written at crawl time, not apply time. The crawl ledger and file store should converge; decide in the brief whether the ledger becomes a view of the file store. `Association` gains **confidence, provenance, review state (pending/confirmed/rejected), and tenant**. File↔entity edges start with what the crawl already knows (folder/org heuristics from `TidyIndexObjectBridge`), now applied to every file.
 
-This is the slice that makes auto-apply trustworthy at higher volume. Until then, keep auto-apply thresholds where they are.
+## Slice 4 — Lenses: one index, many verticals
 
----
+A vertical declares a **relevance lens** in its blueprint: keywords, entity types, source folders/volumes, mail links. Running a lens over the index writes file↔vertical and file↔entity associations, with confidence and provenance, as `pending`. Then:
+- **Finance** = `TidyCrossDomainPromoter`, generalized into the first lens. `CrossDomainFileTagStore`'s data migrates into associations.
+- **Jobs** = second lens: application/listing/email-related files, linked to the Job Seeker entities that already exist.
+- **FFA** = third lens. Three verticals prove it's generic, not Finance-shaped.
+- **One Hub request:** "files associated with vertical X (tenant T) above confidence Y", going through `authorizedTenant(...)`. Every vertical, on any device, searches through that request instead of its own discoverer.
 
-## After Slice 4 (noted, not scheduled)
+## Slice 5 — Physical home by organization (decision C)
 
-- **Everything in the graph, not just what moved.** `bridgeToObjectGraph` is only called on apply (`:1104`, `:1529`). Files that are indexed but not yet moved never reach `ObjectStore`, so other verticals can't see them. Moving the bridge to happen at index time is the step toward "smarter across all verticals".
-- **The morning digest** (Phase 3's other half): `nightSummary` plus Slice 4's accept-rate trend go into the dashboard's Priority glance (`ContentView.swift:483` stub).
-- **Revisit distribution** only if Slice 1c's number says the Studio can't clear the backlog in an acceptable number of nights.
+A file's NAS home is its strongest organization association → `Org / Sub-org / Category / Project / …`. Replace the MyBusiness/MyFamily/MyHousehold top level in `TidyTaxonomy.defaultPolicy`. "Unsure" always goes to review, never to auto-apply.
+
+## Slice 6 — Learn from Tim, per lens (the autonomy dial)
+
+Close F4. `FeedbackLog.events()` and schema corrections feed back into association confidence: approvals raise it, corrections and rejections lower it or redirect it. Learned rules stay visible and revocable. Track **accept rate per lens** in the Slice 1 metrics log, nightly. That per-lens number is the autonomy dial: below a threshold a lens only suggests; above it, it may act, with every action journaled and revertible as today. Persist `schemaEdits` as corrections instead of clearing them on each fresh scan.
+
+## After Slice 6
+
+- **The insight engine plugs in:** a blueprint picks its datasets (lens queries), model and connectors, and produces suggestions or confident actions.
+- **The morning digest:** `nightSummary` plus per-lens accept-rate trends go into the dashboard's Priority glance (`ContentView.swift:483` stub).
+- **Revisit distribution** only if Slice 1's throughput number says the Studio can't clear the backlog in an acceptable number of nights.
 
 ---
 

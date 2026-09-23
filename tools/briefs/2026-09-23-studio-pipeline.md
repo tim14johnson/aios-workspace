@@ -108,7 +108,16 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 
 ---
 
-## Slice 2 — Read the documents (next)
+## Slice 2 — Read the documents
+
+**✅ DONE (2026-09-23).** AiOSCore `90dd38d` + `2917ade`, AiOSHub `7ddb960` + `7a696ed`. AiOSCore 920/920, AiOSHub 39/39, both spokes build.
+- New `DocumentText` (AiOSHub): text files (256 KB cap), the PDF text layer (first 20 pages), Vision OCR of the first 3 pages when there's no text layer, RTF, and `.docx`/`.odt` via `unzip` (never the WebKit importers). Capped at 20k characters. The old "read any file whole as UTF-8" fallback is gone; on the NAS it pulled multi-GB videos into memory.
+- The crawl caches document text in `TagCache`, derives NER tags from it, and hands it to finance promotion. Tested: a scanned `scan001.pdf` 1099 gets a finance/tax tag with tax year 2024. **Naming unchanged:** document text never names a file.
+- One-time backfill (`TidyFiles.documentTextBackfill.v1`): document-type ledger entries are forgotten once, so already-crawled files get read. The summary reports "Re-reading N earlier documents once for their text."
+- The crawl loop now ends a root when a pass processes fewer files than its cap, not when it yields fewer new rows.
+- **Verified along the way:** `SchemaClassifier` never reads `SchemaEvidence.ocrText`. Where files are routed is still folder heuristics only; text-based placement belongs to Slices 4–5.
+- **Not done:** `.doc` (legacy binary Word), `.pages`, spreadsheets. A document with genuinely no extractable text is re-attempted whenever the ledger lets it through (cheap after the backfill; no "no text" marker yet).
+
 
 Every lens in Slice 4 depends on this: a finance, jobs or FFA lens can't see a scanned 1099 or offer letter without its text.
 

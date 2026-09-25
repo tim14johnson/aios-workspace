@@ -230,6 +230,7 @@ A file's NAS home is its strongest organization association → `Org / Sub-org /
 - **Review load:** most loose files need an organization assigned by hand. Bulk "assign organization to this group" plus Slice 6's learning are what shrink that.
 - **The tax checklist and the old category-as-Organization bridge entities** still need folding in (Slices 3 and 4).
 - **Merge notes:** the Hub's committed `ContentView` already needs `BrainServerAdmin` / `HubModelLibrary`, which exist only as another session's **uncommitted** files. The Hub doesn't build from a clean checkout until those are committed. The main working trees were left on today's branches (Hub on `fix/tidy-placement-and-brain-budget`, Core and MyFamily on `feature/tax-checklist`), so that session's uncommitted work sits on them.
+  - **Update 2026-09-25:** those files are now committed on `feature/model-library` (AiOSCore + AiOSHub; see `tools/briefs/2026-09-24-model-library-checkout.md`), branched from the same bases as Slice 5. The main working trees are now on `feature/model-library`. Slice 5 + model library merged in scratch worktrees without conflicts (only `ContentView.swift` overlaps and auto-merges): AiOSCore 1,053 tests pass, AiOSHub 60/60. Merge `feature/model-library` with or right after `fix/tidy-placement-and-brain-budget`; neither that branch nor Hub `main` builds from clean without it.
 
 ## Slice 6 — Learn from Tim, per lens (the autonomy dial)
 

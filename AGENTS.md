@@ -45,6 +45,12 @@ things live). Full project context: `context/CONTEXT.md` → `context/memory/MEM
    his factual career record, not TPW business data, and IS allowed. (See context/memory
    work-mac-and-ip.)
 
+7. **Spokes are thin clients.** A spoke captures input (camera, mic, sensors, a form), shows what the
+   Hub returns, and keeps only caches and credentials. It never owns a store of record and never reads
+   the NAS directly. New features go in the Hub, as a lens over the index, and the spoke reaches them
+   through `HubRequest`. (Tim, 09-25. Existing spoke stores are listed in
+   `docs/centerline/next-steps-strawman.md` and move under C4.)
+
 ## Before you touch code
 - State your plan in 3-6 bullets: files touched, new files, model changes, risk/edge cases.
 - If the request is ambiguous, ask one clarifying question before writing — don't guess silently.

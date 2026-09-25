@@ -20,7 +20,8 @@ signals and receive insights/actions over a Bonjour LAN transport. SwiftUI + Swi
 Concurrency throughout. Core logic lives in the `AiOSCore` Swift package; the apps
 (`AiOSHub`, `AiOSBusiness`, `AiOSMyFamily`) depend on it.
 
-Full project context: `context/CONTEXT.md` → `context/memory/MEMORY.md`.
+**Session start:** read `docs/centerline/00-START-HERE.md` (thesis, current priority, decisions, where
+things live). Full project context: `context/CONTEXT.md` → `context/memory/MEMORY.md`.
 
 ## Architecture (where things live)
 - `AiOSCore/Sources/AiOSCore/` — canonical model (Object/Property/Signal), Signal/Insight/
@@ -28,7 +29,8 @@ Full project context: `context/CONTEXT.md` → `context/memory/MEMORY.md`.
   Bonjour Transport. This is the reusable brain — keep it UI-free and platform-neutral.
 - `AiOSHub/` — the Mac Studio hub app. NOT sandboxed (reads real home dir, orchestrates
   local resources). Hosts the analytics engine + connector fetch services.
-- `AiOSBusiness/`, `AiOSMyFamily/` — spoke apps. Sandboxed.
+- `AiOSBusiness/`, `AiOSMyFamily/` — spoke apps. **Not sandboxed today** (no app-sandbox entitlement);
+  whether to sandbox them is decided at distribution time (Tim, 09-25).
 
 ## Non-negotiable rules
 1. Never force-unwrap (`!`) outside test files. Use `guard let` / `if let` / `??`.

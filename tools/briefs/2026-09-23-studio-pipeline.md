@@ -12,6 +12,8 @@
 - **Other Macs are reached by macOS File Sharing**, mounted on the Studio and listed in `OrganizerController.nasVolumePaths`, exactly like the NAS. That list already crawls any path that's currently mounted (`OrganizerController.swift:911-921`). The old Intel Macs are handled the same way.
 - **Nothing is distributed.** A throughput measurement (Slice 1) decides whether that ever changes.
 
+**Status (2026-09-24):** Slices 1–2 done. Slice 3 partly done (3a, 3b first part, plus the 09-24 map fixes below). Slices 4 and 6 not started. **Slice 5 is being built** (overnight 2026-09-24, branch `feature/slice5-org-home`). **Hold bulk Apply until Slice 5 lands:** every file moved before then would have to move again.
+
 ---
 
 ## Why this is a series of slices, not one change
@@ -176,12 +178,25 @@ File store (millions)          ObjectStore (hundreds–thousands)
 - The crawl proposes **file → shared Project** links (`part_of`, pending, the classifier's confidence, the folder trail as evidence). The tenant comes from the taxonomy's top-level category: MyBusiness → business; MyFamily / MyHousehold → family. That level is a category today, not an organization, so **no Organization entities or links yet**; those come with the org-first tree (Slice 5).
 - Duplicate detection's hashes are stored on the map. `edges(to:)` filters inside the query.
 
+**✅ 09-24 fixes to the map and to Tidy (outside the plan, after the 09-23 NAS run).** AiOSCore `9cae243`, AiOSHub `452a4c3`, AiOSMyFamily `0395abe` (branch `fix/tidy-placement-and-brain-budget`). AiOSCore 973/973, AiOSHub 59/59. Report: `docs/architecture/overnight-run-2026-09-23.md` + `…-2026-09-24-followup.md` (local; `docs/` is untracked).
+- **What went wrong on 09-23:** manual Apply moved ~2,800 files whose schema placement had no Organization. `SchemaPathBuilder` dropped the empty level, so they landed at `<NAS>/AiOS/<source folders>/…`. The classifier also rebuilt Tidy's own earlier layouts (`Screenshots/Screenshots/Images/2025-04/2020/`).
+- **Every move now puts the file on the map:** `ItemStore.recordMove(factsIfNew:)`. Moves of never-crawled files used to be dropped.
+- **Apply gate:** manual Apply leaves incomplete placements in place (same rule as auto-apply). The classifier ignores Tidy-derived layout folders.
+- **Every Tidy action is journaled:** folder merges, identical-folder merges and duplicate trashing are now journaled and undoable. A similar-folder merge only trashes after a complete merge.
+- **Remount-safe:** the saved destination survives a NAS remount (`Name` ↔ `Name-1`).
+- **Hub beachball fixed:** `pendingMoveCount` walked every row about 5× per redraw; it's now cached per revision.
+- **Brain prompt budget:** `RemoteAnalyticsEngine` batches signals (≤60k chars per request). Unbounded 136k–537k-token prompts had pushed the MLX server to 52 GB of 64 GB.
+- **Dates from the file:** `FileDateResolver`: a date written in the text → filename → embedded metadata (EXIF / PDF / Office) → modified.
+- **Data repair (not code):** move journal, TidyIndex and `item-index.store` re-pointed to where files really are (`-1` mount, the flattened `Tidy Files/` tree, unjournaled moves). The map holds 34,722 items and passes `integrity_check`. Backups: `~/Library/Application Support/AiOSHub/remediation/`.
+- **Open:** 386 files from the 09-08 run have no trace on the NAS or in `#recycle` (269 from `1 From Synology/Tim Johnson/01 Tim Gigs`). 251 match several same-name copies in `Backups to be Sorted/Drobo` and weren't re-pointed.
+
 **Slice 3 — still to do:**
 - **Move existing vertical entities into the shared store,** after `HubRequestRouter` enforces the edge-based visibility rule (spine doc §2.6). Never before: per-tenant files are today's isolation.
 - Migrate the TidyIndex bridge's File objects and `AssociationStore` edges into `ItemStore` / `EdgeStore`. Clean up the category-as-Organization entities the old bridge created ("MyBusiness", etc.).
 - Freshness: unchanged files skipped by the ledger don't refresh `lastSeenAt`, and deleted files stay on the map. Needs a cheap "still there" sweep.
 - Tim's approvals and schema corrections should confirm or redirect these links. That's Slice 6's learning loop; the edges already have the review state for it.
 - Move tracking in the Hub is covered only by store-level tests.
+- **Still open from 09-24:** Hub-level tests for the apply loops' map writes (store-level tests exist).
 
 ---
 
@@ -191,11 +206,14 @@ A vertical declares a **relevance lens** in its blueprint: keywords, entity type
 - **Finance** = `TidyCrossDomainPromoter`, generalized into the first lens. `CrossDomainFileTagStore`'s data migrates into associations.
 - **Jobs** = second lens: application/listing/email-related files, linked to the Job Seeker entities that already exist.
 - **FFA** = third lens. Three verticals prove it's generic, not Finance-shaped.
+- **Fold in the tax checklist** (AiOSCore `aa708e9`, AiOSMyFamily `64d5dcf`, 09-24). It's a Finance-vertical list file plus one folder per expected document in the family tax tree, and it writes nothing to the map yet. In this slice each checklist item becomes an expectation the Finance lens checks, and each attached document becomes a file → tax-year association. Otherwise it's the vertical-specific store §2 warns against.
 - **One Hub request:** "files associated with vertical X (tenant T) above confidence Y", going through `authorizedTenant(...)`. Every vertical, on any device, searches through that request instead of its own discoverer.
 
 ## Slice 5 — Physical home by organization (decision C)
 
 A file's NAS home is its strongest organization association → `Org / Sub-org / Category / Project / …`. Replace the MyBusiness/MyFamily/MyHousehold top level in `TidyTaxonomy.defaultPolicy`. "Unsure" always goes to review, never to auto-apply.
+
+**🚧 In progress (overnight 2026-09-24, branch `feature/slice5-org-home` in AiOSCore + AiOSHub, built in separate worktrees because another session is working in AiOSCore).** Nothing on the NAS is moved while it's being built.
 
 ## Slice 6 — Learn from Tim, per lens (the autonomy dial)
 

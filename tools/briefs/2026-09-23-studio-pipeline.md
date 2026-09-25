@@ -12,7 +12,7 @@
 - **Other Macs are reached by macOS File Sharing**, mounted on the Studio and listed in `OrganizerController.nasVolumePaths`, exactly like the NAS. That list already crawls any path that's currently mounted (`OrganizerController.swift:911-921`). The old Intel Macs are handled the same way.
 - **Nothing is distributed.** A throughput measurement (Slice 1) decides whether that ever changes.
 
-**Status (2026-09-24):** Slices 1–2 done. Slice 3 partly done (3a, 3b first part, plus the 09-24 map fixes below). Slices 4 and 6 not started. **Slice 5 is being built** (overnight 2026-09-24, branch `feature/slice5-org-home`). **Hold bulk Apply until Slice 5 lands:** every file moved before then would have to move again.
+**Status (2026-09-25):** Slices 1–2 done. Slice 3 partly done (3a, 3b first part, plus the 09-24 map fixes). **Slice 5 built on branch `feature/slice5-org-home`, not yet merged.** Slices 4 and 6 not started. **Hold bulk Apply until Slice 5 is merged and Tim has reviewed the organization directory.**
 
 ---
 
@@ -188,7 +188,7 @@ File store (millions)          ObjectStore (hundreds–thousands)
 - **Brain prompt budget:** `RemoteAnalyticsEngine` batches signals (≤60k chars per request). Unbounded 136k–537k-token prompts had pushed the MLX server to 52 GB of 64 GB.
 - **Dates from the file:** `FileDateResolver`: a date written in the text → filename → embedded metadata (EXIF / PDF / Office) → modified.
 - **Data repair (not code):** move journal, TidyIndex and `item-index.store` re-pointed to where files really are (`-1` mount, the flattened `Tidy Files/` tree, unjournaled moves). The map holds 34,722 items and passes `integrity_check`. Backups: `~/Library/Application Support/AiOSHub/remediation/`.
-- **Open:** 386 files from the 09-08 run have no trace on the NAS or in `#recycle` (269 from `1 From Synology/Tim Johnson/01 Tim Gigs`). 251 match several same-name copies in `Backups to be Sorted/Drobo` and weren't re-pointed.
+- **Open (corrected 09-25):** the "386 files from the 09-08 run with no trace" finding is **not reliable**. The NAS listing behind it was cut short by a time limit and never reached `The Johnsons/`, so those files may be there. Re-check them against the map (ItemStore) once the Hub has crawled the NAS, not with `find` over SMB. 251 match several same-name copies in `Backups to be Sorted/Drobo` and weren't re-pointed.
 
 **Slice 3 — still to do:**
 - **Move existing vertical entities into the shared store,** after `HubRequestRouter` enforces the edge-based visibility rule (spine doc §2.6). Never before: per-tenant files are today's isolation.
@@ -213,7 +213,23 @@ A vertical declares a **relevance lens** in its blueprint: keywords, entity type
 
 A file's NAS home is its strongest organization association → `Org / Sub-org / Category / Project / …`. Replace the MyBusiness/MyFamily/MyHousehold top level in `TidyTaxonomy.defaultPolicy`. "Unsure" always goes to review, never to auto-apply.
 
-**🚧 In progress (overnight 2026-09-24, branch `feature/slice5-org-home` in AiOSCore + AiOSHub, built in separate worktrees because another session is working in AiOSCore).** Nothing on the NAS is moved while it's being built.
+**✅ Built (overnight 2026-09-24), not yet merged.** Branch `feature/slice5-org-home`: AiOSCore `550619a` + `4b04042`, AiOSHub `41f8ba5` + `3d263dd`. AiOSCore 989/989 on its own, AiOSHub 60/60, both spokes build. Built in worktrees because another session was working in the main trees; see "Merge notes".
+- **`OrganizationDirectory`** (Core): organizations are **data** (`~/Library/Application Support/AiOS/organizations.json`), not code. Each one has a name (its top NAS folder), a tenant (business/family), folder aliases, mention phrases, sub-organizations (with aliases), people, categories, plus a list of **transparent folders** (staging containers to skip). An empty directory places nothing, so everything goes to review.
+- **Classifier (`FolderHeuristicSchemaClassifier(organizations:)`):**
+  - An organization folder (0.9) is the strongest signal. A sub-org folder implies its organization (0.85).
+  - **The outermost organization signal wins.** A category, person or sub-org that belongs to exactly one organization counts as that organization's signal (0.8), so an employer's name deep inside a household finance trail stays a folder.
+  - With no folder signal, a whole-word **mention** in the file's name or top-of-document text names the organization, **capped at 0.65 → always review**. Two organizations mentioned, or a mention contradicting a category-derived organization → review.
+- **Map:** real organizations become shared `Organization` entities with pending file → org `belongs_to` edges; the tenant comes from the directory, not a category guess. Legacy categories (MyBusiness…) create nothing. `TidyTaxonomy` is removed.
+- **Hub:** Tidy settings → "Edit Organizations…" (organizations, context, aliases, phrases, sub-orgs, people, categories, staging folders).
+- **Tim's directory is seeded** (data, not in git): The Johnsons (family; sub-orgs Family / Household; household categories), The Part Works, Valley Perinatal & Advanced Womens Care, Mazzaroth Pictures, 1925 Productions (a guess), FFA, plus 14 staging folders. **Tim to review in the editor.**
+- **Dry run (no moves):** the 3,558 files from the 09-23 run, classified from their original paths: **963 complete placements** (tax files → `The Johnsons/Taxes/…`, statements → `The Johnsons/Financial/<account>/<year>/`). 2,563 have no organization signal (loose Desktop / iCloud files) and stay in review. In a 5,000-path NAS sample, 339 were complete and the rest stay in review.
+
+**Slice 5 — open:**
+- **App packages are crawled file by file.** Files inside `.qdf` / `.quicken` bundles are classified one by one, so a package's name never counts as the file's name (a Mazzaroth Quicken file lands in the household). The crawl should treat packages as one file.
+- **Decade folders** (`2020's`) become a project level. They could be treated like date folders.
+- **Review load:** most loose files need an organization assigned by hand. Bulk "assign organization to this group" plus Slice 6's learning are what shrink that.
+- **The tax checklist and the old category-as-Organization bridge entities** still need folding in (Slices 3 and 4).
+- **Merge notes:** the Hub's committed `ContentView` already needs `BrainServerAdmin` / `HubModelLibrary`, which exist only as another session's **uncommitted** files. The Hub doesn't build from a clean checkout until those are committed. The main working trees were left on today's branches (Hub on `fix/tidy-placement-and-brain-budget`, Core and MyFamily on `feature/tax-checklist`), so that session's uncommitted work sits on them.
 
 ## Slice 6 — Learn from Tim, per lens (the autonomy dial)
 

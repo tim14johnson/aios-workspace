@@ -61,23 +61,22 @@ if [[ ${#PENDING[@]} -eq 0 ]]; then
 fi
 log "Found ${#PENDING[@]} brief(s) for $TODAY."
 
-# ── Verify library server is up ───────────────────────────────────────────────
-# :8080 = AiOS model library (launchd brain-server — never kill/start here)
-# Both coding and review passes share this server until multi-port routing lands.
-log "=== Verifying library (:${CODER_PORT}) ==="
+# ── Check the model out of the library ────────────────────────────────────────
+# :8080 = AiOS model library (launchd brain-server, on demand). Hold a lease for the whole run so
+# the Hub's idle timer can't offload the model between briefs; it's released on exit.
+# Both coding and review passes share this model until multi-model routing lands.
+# shellcheck source=lib/brain-lease.sh
+source "$SCRIPT_DIR/lib/brain-lease.sh"
 
 # shellcheck source=/dev/null
 source "$VENV"
 
-log "Waiting for library (:${CODER_PORT})…"
-for i in $(seq 1 120); do
-    if curl -sf "http://127.0.0.1:${CODER_PORT}/health" > /dev/null 2>&1; then
-        log "Library ready (${i} polls, $((i*5))s)."
-        break
-    fi
-    if [[ $i -eq 120 ]]; then log "ERROR: Library not ready after 10 min."; exit 1; fi
-    sleep 5
-done
+log "=== Checking out ${EXECUTOR_MODEL} from the library (:${CODER_PORT}) ==="
+if ! brain_lease_acquire "$EXECUTOR_MODEL" "Overnight queue" 900; then
+    log "ERROR: ${EXECUTOR_MODEL} not serving after 15 min."
+    exit 1
+fi
+log "Library serving ${EXECUTOR_MODEL}."
 
 # ── Process each brief ────────────────────────────────────────────────────────
 PASS_COUNT=0

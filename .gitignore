@@ -48,3 +48,6 @@ __pycache__/
 
 # Secrets — API keys for Deep Review / cloud tier. NEVER commit.
 .aios.env
+
+# Personal Claude Code settings (not shared)
+.claude/settings.local.json
